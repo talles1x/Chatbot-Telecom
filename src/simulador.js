@@ -21,6 +21,26 @@ const fluxo = criarFluxo({
   estado: criarEstado('estado-simulador.json'),
   // "WhatsApp" do simulador. No modo mock, 5583999990000 é o telefone dos contratos do CPF de teste.
   numeroDoChat: async () => process.env.SIMULADOR_NUMERO || '',
+  // PDFs (ex.: fechamento de caixa) ficam salvos na pasta "dados" em vez de ir pelo WhatsApp
+  enviarPdf: async (_, html, nome, legenda) => {
+    const path = require('path');
+    const fs = require('fs');
+    const pasta = path.join(__dirname, '..', 'dados');
+    fs.mkdirSync(pasta, { recursive: true });
+    let arquivo = path.join(pasta, nome);
+    try {
+      const puppeteer = require('puppeteer');
+      const navegador = await puppeteer.launch({ headless: true });
+      const page = await navegador.newPage();
+      await page.setContent(html, { waitUntil: 'load' });
+      await page.pdf({ path: arquivo, format: 'A4', printBackground: true });
+      await navegador.close();
+    } catch {
+      arquivo = arquivo.replace(/\.pdf$/, '.html'); // sem navegador: salva o HTML (abre no navegador e imprime)
+      fs.writeFileSync(arquivo, html);
+    }
+    console.log(`\n🤖 BOT: [PDF salvo em ${arquivo}]\n${legenda}\n`);
+  },
 });
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: process.stdin.isTTY });
