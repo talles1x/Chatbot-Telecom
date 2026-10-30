@@ -211,6 +211,8 @@ const fluxo = criarFluxo({
   enviarImagem,
   estado,
   enviar,
+  // Número real do cliente (converte @lid), usado para conferir se o WhatsApp é do titular
+  numeroDoChat: (chatId) => numeroReal(chatId),
   // Enquete clicável só se USAR_ENQUETE=true (nesta versão do WhatsApp o toque não chega ao bot).
   // Padrão: menu numerado em texto, que funciona em qualquer celular.
   perguntar: process.env.USAR_ENQUETE === 'true' ? perguntar : undefined,

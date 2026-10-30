@@ -28,6 +28,10 @@ O bot lembra o CPF/contrato de cada número e, na próxima vez, só pede confirm
 ## Testar sem WhatsApp (simulador)
 
 - `npm run simular:mock` testa o fluxo com dados falsos. CPF de teste: `100.000.098-22` (2 contratos, um com fatura atrasada) e `100.000.037-00` (não encontrado).
+  O bot vai pedir os 4 últimos dígitos do telefone do cadastro: no CPF de teste, responda `0000`. Para simular o WhatsApp do próprio titular, defina `SIMULADOR_NUMERO=5583999990000` antes de rodar.
+
+### Segurança dos dados do cliente
+Nome, rua e ponto de referência só aparecem quando o WhatsApp é do titular (o número bate com um telefone do cadastro no SGP) ou quando a pessoa informa os 4 últimos dígitos de um telefone cadastrado. Sem isso, o bot continua o atendimento mostrando só bairro e cidade, e o resumo enviado à equipe avisa que a identidade **não** foi confirmada.
 - `npm run simular` usa o **SGP de verdade**. Coloque `DEBUG=true` no `.env` para ver as respostas cruas do SGP e conferir se os campos (vencimento, valor, linha digitável, PIX) estão vindo certos.
 
 Comandos no simulador: `#humano` (atendente assume), `#bot` (religa), `#foto` (cliente manda imagem), `sair`.

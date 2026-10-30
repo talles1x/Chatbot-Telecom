@@ -17,6 +17,8 @@ const fluxo = criarFluxo({
   aoTransferir: async () => console.log('   (conversa transferida para o atendente - bot pausado. Digite #bot para religar)\n'),
   log: (m) => console.log(`   ${m}`),
   estado: criarEstado('estado-simulador.json'),
+  // "WhatsApp" do simulador. No modo mock, 5583999990000 é o telefone dos contratos do CPF de teste.
+  numeroDoChat: async () => process.env.SIMULADOR_NUMERO || '',
 });
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: process.stdin.isTTY });
