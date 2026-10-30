@@ -46,13 +46,54 @@ async function consultarCliente(cpfcnpj) {
     id: primeiro(c, ['contratoId', 'contrato', 'id', 'contrato_id']),
     nome: primeiro(c, ['razaoSocial', 'nome', 'cliente.nome', 'clienteNome']) || '',
     status: primeiro(c, ['contratoStatusDisplay', 'status_display', 'statusDisplay', 'status']) || '',
-    endereco: montarEndereco(
-      primeiro(c, ['endereco_instalacao', 'enderecoInstalacao', 'servico_endereco', 'servico.endereco', 'endereco']) ||
-        (c.servicos && c.servicos[0] && c.servicos[0].endereco)
-    ),
+    endereco: extrairEndereco(c),
     plano: textoPlano(primeiro(c, ['planointernet', 'plano', 'servico_plano', 'servico.plano', 'planoDescricao']) ||
       (c.servicos && c.servicos[0] && (c.servicos[0].plano || c.servicos[0].planointernet))),
   })).filter((c) => c.id !== undefined);
+}
+
+// ---------- Endereço e ponto de referência ----------
+// Cada versão do SGP manda o endereço com nomes diferentes (objeto, texto ou campos soltos
+// como "endereco_logradouro"). Primeiro tenta os nomes conhecidos; se não achar, procura
+// em todos os campos do contrato, dando preferência ao endereço de instalação.
+function extrairEndereco(c) {
+  const direto = montarEndereco(
+    primeiro(c, ['endereco_instalacao', 'enderecoInstalacao', 'servico_endereco', 'servico.endereco', 'endereco']) ||
+      (c.servicos && c.servicos[0] && c.servicos[0].endereco)
+  );
+  if (direto) return direto;
+  const campos = achatar(c);
+  const rua = buscarCampo(campos, /(logradouro|(^|[._])rua)$/);
+  const bairro = buscarCampo(campos, /bairro$/);
+  const cidade = buscarCampo(campos, /(cidade|municipio)(_?nome)?$/);
+  if (!rua && !bairro && !cidade) return '';
+  return montarEndereco({
+    logradouro: rua,
+    numero: buscarCampo(campos, /(^|[._])(numero|num)$/),
+    complemento: buscarCampo(campos, /complemento$/),
+    bairro,
+    cidade,
+    uf: buscarCampo(campos, /(^|[._])uf$/),
+  });
+}
+
+// { a: { b: 1 }, servicos: [{ c: 2 }] } -> [['a.b', 1], ['servicos.0.c', 2]] (só valores simples)
+function achatar(obj, prefixo = '', saida = [], nivel = 0) {
+  if (!obj || typeof obj !== 'object' || nivel > 4) return saida;
+  for (const [k, v] of Object.entries(obj)) {
+    const chave = prefixo ? `${prefixo}.${k}` : k;
+    if (v && typeof v === 'object') achatar(v, chave, saida, nivel + 1);
+    else if (v !== null && v !== undefined && String(v).trim() !== '') saida.push([chave.toLowerCase(), v]);
+  }
+  return saida;
+}
+
+// Endereço de instalação/serviço vem antes do endereço de cobrança do cliente
+function buscarCampo(campos, regex) {
+  const achados = campos.filter(([k]) => regex.test(k) && !/(_id|\.id|id)$/.test(k));
+  const peso = (k) => (/instal/.test(k) ? 0 : /servic/.test(k) ? 1 : /cobranca|fatura/.test(k) ? 3 : 2);
+  achados.sort((a, b) => peso(a[0]) - peso(b[0]));
+  return achados.length ? String(achados[0][1]).trim() : undefined;
 }
 
 // O endereço pode vir como texto ou como objeto ({ logradouro, numero, bairro, cidade, ... })
