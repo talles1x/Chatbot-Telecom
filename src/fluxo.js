@@ -424,7 +424,8 @@ function criarFluxo({
       s = { etapa: 'equipe_menu', tentativas: 0, visto: Date.now() };
       sessoes.set(chatId, s);
       // Já escreveu o que quer na primeira mensagem ("fechar o caixa")
-      const direto = !naoTexto && ent.casarOpcao(texto, OP.equipe);
+      const num = u.normalizar(texto);
+      const direto = !naoTexto && (/^\d$/.test(num) && OP.equipe[Number(num) - 1] ? OP.equipe[Number(num) - 1].valor : ent.casarOpcao(texto, OP.equipe));
       if (direto) return opcaoEquipe(chatId, s, direto);
       return menuEquipe(chatId);
     }
@@ -456,6 +457,12 @@ function criarFluxo({
   }
 
   async function fecharCaixa(chatId) {
+    const usuarios = cfg.caixa.usuarios;
+    // Sem usuário configurado, não mostra nada (senão sairiam os pagamentos da empresa inteira)
+    if (!usuarios.length) {
+      log('[caixa] CAIXA_USUARIOS_SGP vazio no .env: fechamento não configurado');
+      return enviar(chatId, 'O fechamento de caixa ainda não está configurado (falta informar o usuário do SGP deste caixa). Avise o administrador do bot. 🙏');
+    }
     const hoje = u.agoraLocal().hojeISO;
     let pagos;
     try {
@@ -464,14 +471,13 @@ function criarFluxo({
       log(`[caixa] erro ao consultar o SGP: ${e.message}`);
       return enviar(chatId, 'Não consegui puxar os pagamentos do SGP agora. 😕 Tente de novo em alguns minutos ou confira o relatório direto no SGP.');
     }
-    const usuarios = cfg.caixa.usuarios;
-    const meus = usuarios.length ? pagos.filter((p) => usuarios.includes(p.usuario.toLowerCase())) : pagos;
+    const meus = pagos.filter((p) => usuarios.includes(p.usuario.toLowerCase()));
     const total = meus.reduce((soma, p) => soma + p.valor, 0);
     const hora = new Date().toLocaleTimeString('pt-BR', { timeZone: cfg.fuso, hour: '2-digit', minute: '2-digit' });
     const titulo = `💰 *Fechamento de caixa${cfg.caixa.nome ? ` - ${cfg.caixa.nome}` : ''}*`;
-    const cab = [titulo, `📅 ${u.dataBR(hoje)} (até ${hora})`, usuarios.length ? `👤 Usuário SGP: ${usuarios.join(', ')}` : null].filter(Boolean).join('\n');
-    registrar(`[caixa] ${chatId}: ${meus.length} pagamento(s), ${u.moeda(total)}${usuarios.length ? ` (usuários: ${usuarios.join(', ')})` : ''}`);
-    if (!meus.length) return enviar(chatId, `${cab}\n\nNenhum pagamento recebido hoje${usuarios.length ? ' por esse usuário' : ''}.`);
+    const cab = [titulo, `📅 ${u.dataBR(hoje)} (até ${hora})`, `👤 Usuário SGP: ${usuarios.join(', ')}`].join('\n');
+    registrar(`[caixa] ${chatId}: ${meus.length} pagamento(s), ${u.moeda(total)} (usuários: ${usuarios.join(', ')})`);
+    if (!meus.length) return enviar(chatId, `${cab}\n\nNenhum pagamento recebido hoje por esse usuário.`);
 
     const porPortador = {};
     for (const p of meus) {

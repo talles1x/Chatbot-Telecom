@@ -73,7 +73,7 @@ Use o atalho do `iniciar.bat`, e não um atalho direto para o `node` ou para o `
 
 Os números em `ATENDENTE_NUMEROS` (por exemplo, o atendente de um ponto de recebimento) recebem um menu próprio quando mandam mensagem para o bot:
 
-- **Fechar o caixa**: puxa do SGP os pagamentos do dia baixados pelos usuários em `CAIXA_USUARIOS_SGP` e manda o total, a quantidade, o total por portador e a lista para conferência (contrato, nome abreviado, valor e hora). O token do SGP precisa ter permissão para listar faturas.
+- **Fechar o caixa**: puxa do SGP só os pagamentos do dia baixados pelos usuários em `CAIXA_USUARIOS_SGP` (obrigatório; sem ele, o bot avisa que o caixa não está configurado em vez de mostrar os pagamentos da empresa toda) e manda o total, a quantidade, o total por portador e a lista para conferência (contrato, nome abreviado, valor e hora). O token do SGP precisa ter permissão para listar faturas.
 - **Avisar pré-cadastro**: pede o nome do cliente, o dia de vencimento e o plano. O resumo fica na conversa (marcada como não lida) e vai também para o `NUMERO_EQUIPE`, se estiver preenchido.
 - **Falar com atendente**: passa a conversa para uma pessoa, como no menu de cliente.
 
