@@ -176,6 +176,33 @@ async function titulosAbertos(cpfcnpj, contrato) {
     .sort((a, b) => String(u.paraISO(a.vencimento) || '9999').localeCompare(String(u.paraISO(b.vencimento) || '9999')));
 }
 
+// ---------- Faturas pagas num dia (fechamento de caixa) ----------
+// dataISO: "AAAA-MM-DD". Busca todas as páginas (o SGP devolve até 250 por vez).
+async function titulosPagos(dataISO) {
+  if (cfg.sgp.mock) return mock.titulosPagos();
+  const todos = [];
+  for (let offset = 0, pagina = 0; pagina < 20; pagina++) {
+    const r = await post('/api/ura/titulos/', {
+      status: 'pagos', data_pagamento_inicio: dataISO, data_pagamento_fim: dataISO,
+      ordenar: 'data_pagamento', ordenar_ordem: 'asc', limit: 250, offset,
+    });
+    const lista = primeiro(r, ['titulos', 'faturas', 'dados']) || [];
+    todos.push(...lista);
+    const total = Number(primeiro(r, ['paginacao.total'])) || 0;
+    offset += lista.length;
+    if (!lista.length || offset >= total) break;
+  }
+  return todos.map((t) => ({
+    id: primeiro(t, ['id', 'titulo', 'tituloId']),
+    cliente: primeiro(t, ['clienteNome', 'cliente', 'nome']) || '',
+    contrato: primeiro(t, ['clienteContrato', 'contrato']),
+    valor: Number(String(primeiro(t, ['valorPago', 'valor_pago', 'valorCorrigido', 'valor']) ?? 0).replace(',', '.')) || 0,
+    data: String(primeiro(t, ['dataPagamento', 'data_pagamento']) || ''),
+    usuario: String(primeiro(t, ['usuario_baixa', 'usuarioBaixa']) || ''),
+    portador: String(primeiro(t, ['portador']) || ''),
+  }));
+}
+
 // ---------- Promessa de pagamento ----------
 async function liberarPromessa(contrato) {
   if (cfg.sgp.mock) return mock.liberarPromessa(contrato);
@@ -241,10 +268,18 @@ const mock = {
   verificarAcesso(contrato) {
     return contrato !== 1001; // 1001 = offline, outros online
   },
+  titulosPagos() {
+    const hoje = new Date().toISOString().slice(0, 10);
+    return [
+      { id: 80, cliente: 'CLIENTE TESTE DA SILVA', contrato: 1001, valor: 99.9, data: `${hoje} 09:15:00`, usuario: 'caixa.teste', portador: 'Caixa Local' },
+      { id: 81, cliente: 'MARIA DE TESTE', contrato: 1004, valor: 79.9, data: `${hoje} 10:40:00`, usuario: 'caixa.teste', portador: 'PIX' },
+      { id: 82, cliente: 'JOSE EXEMPLO', contrato: 1005, valor: 49.9, data: `${hoje} 11:05:00`, usuario: 'outro.usuario', portador: 'Banco' },
+    ];
+  },
   liberarPromessa() {
     const ate = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
     return { ok: true, mensagem: 'Promessa liberada', protocolo: '2026102600001', ate };
   },
 };
 
-module.exports = { consultarCliente, titulosAbertos, liberarPromessa, verificarAcesso };
+module.exports = { consultarCliente, titulosAbertos, titulosPagos, liberarPromessa, verificarAcesso };
