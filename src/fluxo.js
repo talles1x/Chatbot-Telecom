@@ -95,6 +95,12 @@ const OP = {
     { valor: '9', texto: '👤 Falar com um atendente' },
     { valor: '0', texto: '↩️ Voltar ao início' },
   ],
+  // Menu da equipe (números em ATENDENTE_NUMEROS)
+  equipe: [
+    { valor: 'c', texto: '💰 Fechar o caixa', chave: /\b(caixa|fechar|fechamento|relatorio|recebi(dos|mentos)?|pagamentos)\b/ },
+    { valor: 'p', texto: '📝 Avisar pré-cadastro', chave: /\b(pre ?-?cadastro|cadastro|cadastrei|cliente novo|novo cliente)\b/ },
+    { valor: 'a', texto: '👤 Falar com atendente', chave: /\b(atendente|falar|pessoa|humano|ajuda)\b/ },
+  ],
 };
 
 // Arte com os planos e a indicação de plano conforme o uso que o cliente escolheu
@@ -182,7 +188,7 @@ function criarFluxo({
     cancelarLembrete(chatId);
     const s = sessoes.get(chatId);
     // Só no meio de um fluxo (não no menu nem no "precisa de mais alguma coisa?")
-    if (!s || !cfg.lembreteMin || s.etapa === 'menu' || s.etapa === 'financeiro') return;
+    if (!s || !cfg.lembreteMin || s.etapa === 'menu' || s.etapa === 'financeiro' || s.etapa.startsWith('equipe_')) return;
     const etapa = s.etapa;
     const timer = setTimeout(async () => {
       const atual = sessoes.get(chatId);
@@ -260,6 +266,9 @@ function criarFluxo({
   async function receberInterno(chatId, texto, { naoTexto = false, audio = false, audioFalhou = false } = {}) {
     let s = sessoes.get(chatId);
     const expirou = s && Date.now() - s.visto > cfg.sessaoMin * 60000;
+
+    // Número da equipe: menu próprio (fechar caixa, pré-cadastro, atendente), nunca o de cliente
+    if (await ehEquipe(chatId)) return receberEquipe(chatId, s && !expirou ? s : null, texto, { naoTexto, audioFalhou });
 
     // Áudio que o bot não conseguiu ouvir: no chamado de suporte vale como descrição;
     // fora dele, pede para escrever (na 2ª vez seguida, passa para o atendente)
@@ -395,6 +404,149 @@ function criarFluxo({
       await enviar(chatId, MSG.erroSistema);
       await transferir(chatId, false);
     }
+  }
+
+  // ---------- Equipe (ATENDENTE_NUMEROS) ----------
+  const cacheEquipe = new Map();
+  async function ehEquipe(chatId) {
+    if (!cfg.atendentesNumeros.length) return false;
+    if (!cacheEquipe.has(chatId)) {
+      const numero = await Promise.resolve(numeroDoChat(chatId)).catch(() => '');
+      cacheEquipe.set(chatId, cfg.atendentesNumeros.some((n) => u.mesmoNumero(n, numero)));
+    }
+    return cacheEquipe.get(chatId);
+  }
+
+  const menuEquipe = (chatId, pergunta = 'Olá! 👋 O que você precisa? 👇') => perguntar(chatId, pergunta, OP.equipe);
+
+  async function receberEquipe(chatId, s, texto, { naoTexto, audioFalhou }) {
+    if (!s) {
+      s = { etapa: 'equipe_menu', tentativas: 0, visto: Date.now() };
+      sessoes.set(chatId, s);
+      // Já escreveu o que quer na primeira mensagem ("fechar o caixa")
+      const direto = !naoTexto && ent.casarOpcao(texto, OP.equipe);
+      if (direto) return opcaoEquipe(chatId, s, direto);
+      return menuEquipe(chatId);
+    }
+    s.visto = Date.now();
+    if (s.etapa.startsWith('equipe_pc_')) return etapaPreCadastro(chatId, s, texto, naoTexto || audioFalhou);
+    if (naoTexto || audioFalhou) return menuEquipe(chatId, 'Recebi. 👍 O que você precisa? 👇');
+    let t = u.normalizar(texto);
+    if (/^\d{1,2}$/.test(t) && OP.equipe[Number(t) - 1]) t = OP.equipe[Number(t) - 1].valor;
+    else t = ent.casarOpcao(texto, OP.equipe) || t;
+    return opcaoEquipe(chatId, s, t);
+  }
+
+  async function opcaoEquipe(chatId, s, t) {
+    if (t === 'c') {
+      s.etapa = 'equipe_menu';
+      await fecharCaixa(chatId);
+      return menuEquipe(chatId, 'Precisa de mais alguma coisa? 👇');
+    }
+    if (t === 'p') {
+      s.etapa = 'equipe_pc_nome';
+      s.preCadastro = {};
+      return enviar(chatId, 'Certo! Qual é o *nome do cliente* do pré-cadastro?\n\n_Para cancelar, digite *0*._');
+    }
+    if (t === 'a') {
+      await enviar(chatId, 'Certo! Já avisei a equipe, em instantes alguém fala com você por aqui. 😊');
+      return transferir(chatId, false);
+    }
+    return menuEquipe(chatId, 'Não entendi 😅 Escolha uma das opções 👇');
+  }
+
+  async function fecharCaixa(chatId) {
+    const hoje = u.agoraLocal().hojeISO;
+    let pagos;
+    try {
+      pagos = await sgp.titulosPagos(hoje);
+    } catch (e) {
+      log(`[caixa] erro ao consultar o SGP: ${e.message}`);
+      return enviar(chatId, 'Não consegui puxar os pagamentos do SGP agora. 😕 Tente de novo em alguns minutos ou confira o relatório direto no SGP.');
+    }
+    const usuarios = cfg.caixa.usuarios;
+    const meus = usuarios.length ? pagos.filter((p) => usuarios.includes(p.usuario.toLowerCase())) : pagos;
+    const total = meus.reduce((soma, p) => soma + p.valor, 0);
+    const hora = new Date().toLocaleTimeString('pt-BR', { timeZone: cfg.fuso, hour: '2-digit', minute: '2-digit' });
+    const titulo = `💰 *Fechamento de caixa${cfg.caixa.nome ? ` - ${cfg.caixa.nome}` : ''}*`;
+    const cab = [titulo, `📅 ${u.dataBR(hoje)} (até ${hora})`, usuarios.length ? `👤 Usuário SGP: ${usuarios.join(', ')}` : null].filter(Boolean).join('\n');
+    registrar(`[caixa] ${chatId}: ${meus.length} pagamento(s), ${u.moeda(total)}${usuarios.length ? ` (usuários: ${usuarios.join(', ')})` : ''}`);
+    if (!meus.length) return enviar(chatId, `${cab}\n\nNenhum pagamento recebido hoje${usuarios.length ? ' por esse usuário' : ''}.`);
+
+    const porPortador = {};
+    for (const p of meus) {
+      const k = p.portador || 'Sem portador';
+      porPortador[k] = porPortador[k] || { n: 0, v: 0 };
+      porPortador[k].n++;
+      porPortador[k].v += p.valor;
+    }
+    const resumoTxt = [
+      cab,
+      '',
+      `Pagamentos: *${meus.length}*`,
+      `Total recebido: *${u.moeda(total)}*`,
+      '',
+      '*Por portador:*',
+      ...Object.entries(porPortador).map(([k, v]) => `• ${k}: ${v.n} - ${u.moeda(v.v)}`),
+    ].join('\n');
+    await enviar(chatId, resumoTxt);
+
+    // Lista para conferência (até 60 por mensagem)
+    const linhas = meus.map((p, i) => {
+      const h = (p.data.match(/(\d{2}:\d{2})/) || [])[1];
+      return `${i + 1}. ${p.contrato ? `Contrato ${p.contrato} - ` : ''}${nomeLGPD(p.cliente) || 'Cliente'} - ${u.moeda(p.valor)}${h ? ` (${h})` : ''}`;
+    });
+    for (let i = 0; i < linhas.length; i += 60) {
+      await enviar(chatId, `${i === 0 ? '*Lista de pagamentos:*\n' : ''}${linhas.slice(i, i + 60).join('\n')}`);
+    }
+  }
+
+  // Pré-cadastro: pede nome, dia de vencimento e plano, um de cada vez
+  async function etapaPreCadastro(chatId, s, texto, naoTexto) {
+    const t = u.normalizar(texto);
+    if (['0', 'cancelar', 'cancela', 'menu'].includes(t)) {
+      s.etapa = 'equipe_menu';
+      delete s.preCadastro;
+      return menuEquipe(chatId, 'Certo, cancelei. O que você precisa? 👇');
+    }
+    if (naoTexto || !String(texto || '').trim()) return enviar(chatId, 'Me responde por texto, por favor. 🙂');
+    const pc = (s.preCadastro = s.preCadastro || {});
+    const valor = String(texto).trim().slice(0, 200);
+
+    if (s.etapa === 'equipe_pc_nome') {
+      if (valor.length < 3) return enviar(chatId, 'Qual é o *nome completo* do cliente?');
+      pc.nome = valor;
+      s.etapa = 'equipe_pc_vencimento';
+      return enviar(chatId, 'Qual a *data de vencimento*? (o dia do mês, ex.: *10*)');
+    }
+    if (s.etapa === 'equipe_pc_vencimento') {
+      // Aceita "10", "dia 10", "10/11"...: guarda o dia; se não tiver número, guarda o texto
+      const dia = (t.match(/\b([0-2]?\d|3[01])\b/) || [])[1];
+      if (!dia && valor.length < 2) return enviar(chatId, 'Qual o *dia do vencimento*? (ex.: *10*)');
+      pc.vencimento = dia && /^(dia\s*)?\d{1,2}$/.test(t) ? `Dia ${Number(dia)}` : valor;
+      s.etapa = 'equipe_pc_plano';
+      return enviar(chatId, 'E qual o *plano*? (ex.: *300 MB*)');
+    }
+    if (s.etapa === 'equipe_pc_plano') {
+      if (valor.length < 2) return enviar(chatId, 'Qual o *plano* do cliente? (ex.: *300 MB*)');
+      pc.plano = valor;
+      return finalizarPreCadastro(chatId, s);
+    }
+  }
+
+  async function finalizarPreCadastro(chatId, s) {
+    const pc = s.preCadastro || {};
+    s.etapa = 'equipe_menu';
+    delete s.preCadastro;
+    const numero = await Promise.resolve(numeroDoChat(chatId)).catch(() => '');
+    const linhas = [`👤 Nome: ${pc.nome}`, `📅 Vencimento: ${pc.vencimento}`, `📶 Plano: ${pc.plano}`];
+    log(`[pré-cadastro] ${chatId}\n${linhas.join('\n')}`);
+    registrar(`[pré-cadastro] aviso recebido de ${chatId}`);
+    // O resumo fica nesta conversa (não lida, para a equipe ver) e vai também para o NUMERO_EQUIPE, se houver
+    await aoOcorrencia(chatId, ['📝 *Pré-cadastro feito (aviso da equipe)*', ...linhas, `Avisado por: ${numero || chatId}`].join('\n'), 'precadastro')
+      .catch((e) => log(`[erro ao avisar equipe] ${e.message}`));
+    await enviar(chatId, `Pré-cadastro avisado! ✅\n\n${linhas.join('\n')}`);
+    return menuEquipe(chatId, 'Precisa de mais alguma coisa? 👇');
   }
 
   // Volta um passo no fluxo
