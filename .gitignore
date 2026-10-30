@@ -1,0 +1,11 @@
+node_modules/
+.env
+.sessao/
+.wwebjs_cache/
+qrcode.png
+dados/
+modelos/
+logs/
+midia/
+_to_delete/
+*.log

@@ -1,0 +1,23 @@
+{
+  "name": "chatbot-telecom",
+  "version": "1.0.0",
+  "description": "Chatbot de WhatsApp para provedores de internet (QR code) - financeiro e suporte integrados ao SGP",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "simular": "node src/simulador.js",
+    "simular:mock": "node src/simulador.js --mock",
+    "test": "node teste/entender.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
+    "dotenv": "^16.4.5",
+    "ffmpeg-static": "^5.3.0",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.34.7"
+  }
+}
