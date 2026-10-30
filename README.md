@@ -69,6 +69,16 @@ Use o atalho do `iniciar.bat`, e não um atalho direto para o `node` ou para o `
 - `#bot` enviado pelo atendente na conversa religa o bot para aquele cliente. `#pausa` desliga. Os comandos são apagados da conversa sozinhos.
 - Fora do horário de atendimento (`HORARIO_DIAS`, `HORARIO_TURNOS` e o texto `HORARIO_TEXTO`; padrão: seg a sáb, 8h–12h e 13h–17h), quem pede atendente recebe a mensagem para aguardar.
 
+## Menu da equipe
+
+Os números em `ATENDENTE_NUMEROS` (por exemplo, o atendente de um ponto de recebimento) recebem um menu próprio quando mandam mensagem para o bot:
+
+- **Fechar o caixa**: puxa do SGP os pagamentos do dia baixados pelos usuários em `CAIXA_USUARIOS_SGP` e manda o total, a quantidade, o total por portador e a lista para conferência (contrato, nome abreviado, valor e hora). O token do SGP precisa ter permissão para listar faturas.
+- **Avisar pré-cadastro**: pede o nome do cliente, o dia de vencimento e o plano. O resumo fica na conversa (marcada como não lida) e vai também para o `NUMERO_EQUIPE`, se estiver preenchido.
+- **Falar com atendente**: passa a conversa para uma pessoa, como no menu de cliente.
+
+No simulador, teste com `ATENDENTE_NUMEROS` e `SIMULADOR_NUMERO` iguais e `npm run simular:mock` (usuário de teste: `caixa.teste`).
+
 ## Cuidados contra banimento
 
 O bot já mostra "digitando…" com tempo variável antes de cada resposta, só responde a quem mandou mensagem, ignora grupos e mensagens antigas e não faz disparo em massa. Mesmo assim, conexão por QR code não é oficial do WhatsApp e sempre existe algum risco. Não use o bot para mandar mensagens em massa ou de cobrança ativa.
