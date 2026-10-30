@@ -8,6 +8,7 @@ const u = require('./util');
 const { criarEstado } = require('./estado');
 const ent = require('./entender');
 const { registrar, resumo } = require('./log');
+const { htmlFechamento } = require('./relatorio');
 
 const MSG = {
   saudacao: () => `Olá! 👋 Aqui é o assistente virtual da *${cfg.empresa}*.`,
@@ -126,6 +127,8 @@ function criarFluxo({
   enviar, enviarImagem, perguntar, aoTransferir = async () => {}, aoOcorrencia = async () => {}, log = console.log, estado = criarEstado(),
   // Número de telefone real da conversa (no WhatsApp, IDs @lid precisam ser convertidos)
   numeroDoChat = async (chatId) => String(chatId).split('@')[0].replace(/\D/g, ''),
+  // (opcional) Transforma um HTML em PDF e envia como documento: (chatId, html, nomeArquivo, legenda)
+  enviarPdf = null,
 }) {
   const perguntarBase = perguntar || perguntarComoTexto(enviar);
   // Guarda as opções da última pergunta, para entender respostas escritas/faladas ("já reiniciei", "sim")
@@ -471,7 +474,9 @@ function criarFluxo({
       log(`[caixa] erro ao consultar o SGP: ${e.message}`);
       return enviar(chatId, 'Não consegui puxar os pagamentos do SGP agora. 😕 Tente de novo em alguns minutos ou confira o relatório direto no SGP.');
     }
-    const meus = pagos.filter((p) => usuarios.includes(p.usuario.toLowerCase()));
+    const meus = pagos
+      .filter((p) => usuarios.includes(p.usuario.toLowerCase()))
+      .sort((a, b) => a.data.localeCompare(b.data)); // em ordem de horário
     const total = meus.reduce((soma, p) => soma + p.valor, 0);
     const hora = new Date().toLocaleTimeString('pt-BR', { timeZone: cfg.fuso, hour: '2-digit', minute: '2-digit' });
     const titulo = `💰 *Fechamento de caixa${cfg.caixa.nome ? ` - ${cfg.caixa.nome}` : ''}*`;
@@ -495,11 +500,34 @@ function criarFluxo({
       '*Por portador:*',
       ...Object.entries(porPortador).map(([k, v]) => `• ${k}: ${v.n} - ${u.moeda(v.v)}`),
     ].join('\n');
+    const horaDe = (p) => (p.data.match(/(\d{2}:\d{2})/) || [])[1] || '';
+
+    // PDF com o mesmo conteúdo (resumo na legenda). Se não der, manda tudo em texto.
+    if (enviarPdf) {
+      const html = htmlFechamento({
+        empresa: cfg.empresa,
+        local: cfg.caixa.nome,
+        data: u.dataBR(hoje),
+        hora,
+        usuarios,
+        pagamentos: meus.map((p) => ({ hora: horaDe(p), contrato: p.contrato, cliente: nomeLGPD(p.cliente), portador: p.portador, valor: p.valor })),
+        total,
+        porPortador: Object.entries(porPortador).map(([nome, v]) => ({ nome, n: v.n, v: v.v })),
+        geradoEm: `${u.dataBR(hoje)} às ${hora}`,
+      });
+      const nome = `fechamento-caixa${cfg.caixa.nome ? `-${u.normalizar(cfg.caixa.nome).replace(/[^a-z0-9]+/g, '-')}` : ''}-${hoje}.pdf`;
+      try {
+        await enviarPdf(chatId, html, nome, resumoTxt);
+        return;
+      } catch (e) {
+        log(`[caixa] não consegui gerar/enviar o PDF (${e.message}), mandando em texto`);
+      }
+    }
     await enviar(chatId, resumoTxt);
 
     // Lista para conferência (até 60 por mensagem)
     const linhas = meus.map((p, i) => {
-      const h = (p.data.match(/(\d{2}:\d{2})/) || [])[1];
+      const h = horaDe(p);
       return `${i + 1}. ${p.contrato ? `Contrato ${p.contrato} - ` : ''}${nomeLGPD(p.cliente) || 'Cliente'} - ${u.moeda(p.valor)}${h ? ` (${h})` : ''}`;
     });
     for (let i = 0; i < linhas.length; i += 60) {

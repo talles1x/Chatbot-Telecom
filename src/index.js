@@ -209,8 +209,31 @@ async function enviarImagem(chatId, arquivo, legenda) {
   if (chat) await chat.clearState().catch(() => {});
 }
 
+// Gera um PDF a partir de HTML no navegador que o bot já usa (WhatsApp Web) e envia como documento
+async function enviarPdf(chatId, html, nomeArquivo, legenda) {
+  if (!client.pupBrowser) throw new Error('navegador do WhatsApp não está pronto');
+  const page = await client.pupBrowser.newPage();
+  let pdf;
+  try {
+    await page.setContent(html, { waitUntil: 'load' });
+    pdf = await comLimite(page.pdf({ format: 'A4', printBackground: true, margin: { top: '16mm', bottom: '16mm', left: '14mm', right: '14mm' } }), 30000);
+  } finally {
+    await page.close().catch(() => {});
+  }
+  const media = new MessageMedia('application/pdf', Buffer.from(pdf).toString('base64'), nomeArquivo);
+  const chat = await pegarChat(chatId);
+  if (chat) await chat.sendStateTyping().catch(() => {});
+  await u.esperar(u.aleatorio(cfg.delay.min, cfg.delay.max));
+  // Marca como envio do bot (legenda e nome do arquivo), para não confundir com o atendente
+  for (const k of [chave(chatId, legenda), chave(chatId, nomeArquivo)]) enviandoAgora.set(k, (enviandoAgora.get(k) || 0) + 1);
+  await mandar(chatId, media, { caption: legenda, sendMediaAsDocument: true });
+  registrar(`[bot →] ${chatId}: [PDF ${nomeArquivo}] "${resumo(legenda, 80)}"`);
+  if (chat) await chat.clearState().catch(() => {});
+}
+
 const fluxo = criarFluxo({
   enviarImagem,
+  enviarPdf,
   estado,
   enviar,
   // Número real do cliente (converte @lid), usado para conferir se o WhatsApp é do titular
