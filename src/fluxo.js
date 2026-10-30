@@ -798,7 +798,12 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
   function perguntarContrato(chatId, s, pergunta) {
     const opcoes = s.contratos.slice(0, 10).map((c, i) => ({
       valor: String(i + 1),
-      texto: `Contrato ${c.id}${c.endereco ? ` · ${enderecoLGPD(c.endereco)}` : ''}`.slice(0, 90),
+      // Endereço + ponto de referência para o cliente reconhecer qual é o contrato dele
+      texto: [
+        `Contrato ${c.id}`,
+        c.endereco ? enderecoLGPD(c.endereco) : null,
+        c.referencia ? `Ref: ${c.referencia}` : null,
+      ].filter(Boolean).join(' · ').slice(0, 100),
     }));
     opcoes.push({ valor: 'v', texto: '⬅️ Voltar (digitar outro CPF)' });
     return perguntar(chatId, pergunta, opcoes);
