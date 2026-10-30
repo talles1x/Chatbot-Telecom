@@ -50,7 +50,10 @@ async function consultarCliente(cpfcnpj) {
     referencia: extrairReferencia(c),
     plano: textoPlano(primeiro(c, ['planointernet', 'plano', 'servico_plano', 'servico.plano', 'planoDescricao']) ||
       (c.servicos && c.servicos[0] && (c.servicos[0].plano || c.servicos[0].planointernet))),
-  })).filter((c) => c.id !== undefined);
+  })).filter((c) => c.id !== undefined).map((c, i) => {
+    avisarSemEndereco(c, lista[i]);
+    return c;
+  });
 }
 
 // ---------- Endereço e ponto de referência ----------
@@ -100,6 +103,16 @@ function buscarCampo(campos, regex) {
   const peso = (k) => (/instal/.test(k) ? 0 : /servic/.test(k) ? 1 : /cobranca|fatura/.test(k) ? 3 : 2);
   achados.sort((a, b) => peso(a[0]) - peso(b[0]));
   return achados.length ? String(achados[0][1]).trim() : undefined;
+}
+
+// Se o SGP não mandar endereço reconhecível, mostra só os NOMES dos campos (nunca os valores),
+// uma vez por execução, para dar para ajustar o código sem expor dados de cliente.
+let avisouSemEndereco = false;
+function avisarSemEndereco(c, bruto) {
+  if (c.endereco || avisouSemEndereco) return;
+  avisouSemEndereco = true;
+  const nomes = [...new Set(achatar(bruto).map(([k]) => k.replace(/\.\d+\./g, '.N.')))].join(', ');
+  try { require('./log').registrar(`[SGP] contrato sem endereço reconhecido. Campos recebidos: ${nomes}`); } catch {}
 }
 
 // O endereço pode vir como texto ou como objeto ({ logradouro, numero, bairro, cidade, ... })
