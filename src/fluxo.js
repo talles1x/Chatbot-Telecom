@@ -350,7 +350,7 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
         case 'venda_uso':
           return await etapaVendaUso(chatId, s, t);
         case 'contrato':
-          return await etapaContrato(chatId, s, t);
+          return await etapaContrato(chatId, s, t, texto);
         case 'financeiro':
           return await etapaFinanceiro(chatId, s, t);
         case 'acordo':
@@ -564,12 +564,31 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
     return perguntarContrato(chatId, s, `Encontrei ${contratos.length} contratos. Qual deles? 👇`);
   }
 
-  async function etapaContrato(chatId, s, t) {
-    const i = Number(t) - 1;
-    if (!Number.isInteger(i) || i < 0 || i >= Math.min(s.contratos.length, MAX_LISTA)) {
-      return perguntarContrato(chatId, s, 'Toque no contrato desejado 👇');
+  // Aceita a opção da lista, o número do contrato (ex.: 4684) ou parte do endereço/referência
+  async function etapaContrato(chatId, s, t, texto) {
+    const todos = s.contratosTodos || s.contratos;
+    let c = /^\d{1,2}$/.test(t) ? s.contratos.slice(0, MAX_LISTA)[Number(t) - 1] : null;
+    if (!c) {
+      const numero = u.soDigitos(texto);
+      if (numero) c = todos.find((x) => String(x.id) === numero);
     }
-    s.contrato = s.contratos[i];
+    if (!c) {
+      // Busca por palavras: "rua das flores" acha "R. Flores, 10"; ignora rua/av/da/de...
+      const palavras = u.normalizar(texto).split(/[^a-z0-9]+/).filter((p) => p.length >= 3 && !PALAVRAS_VAZIAS.has(p));
+      if (palavras.length) {
+        const achados = todos.filter((x) => {
+          const onde = u.normalizar(`${x.endereco || ''} ${x.referencia || ''}`);
+          return palavras.every((p) => onde.includes(p));
+        });
+        if (achados.length === 1) c = achados[0];
+        else if (achados.length > 1) {
+          s.contratos = achados;
+          return perguntarContrato(chatId, s, `Achei ${achados.length} contratos com "${String(texto).trim().slice(0, 40)}". Qual deles? 👇`);
+        }
+      }
+    }
+    if (!c) return perguntarContrato(chatId, s, 'Não encontrei esse contrato 🤔 Escolha uma das opções 👇');
+    s.contrato = c;
     estado.lembrar(chatId, { contrato: s.contrato.id });
     await enviar(chatId, MSG.contratoInfo(s.contrato));
     return aposContrato(chatId, s);
@@ -928,6 +947,8 @@ function mascarar(d) {
   if (d.length === 14) return `**.${d.slice(2, 5)}.${d.slice(5, 8)}/****-**`;
   return '***';
 }
+
+const PALAVRAS_VAZIAS = new Set(['rua', 'avenida', 'travessa', 'sitio', 'das', 'dos', 'contrato', 'casa', 'meu', 'minha', 'que', 'fica', 'perto', 'numero']);
 
 // Quantos contratos cabem na lista (o resto o cliente acha digitando o número ou a rua)
 const MAX_LISTA = 10;
