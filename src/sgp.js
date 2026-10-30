@@ -49,6 +49,8 @@ async function consultarCliente(cpfcnpj) {
     status: primeiro(c, ['contratoStatusDisplay', 'status_display', 'statusDisplay', 'status']) || '',
     endereco: extrairEndereco(c),
     referencia: extrairReferencia(c),
+    // Só para conferir se o WhatsApp é do titular (nunca é mostrado ao cliente nem vai para o log)
+    telefones: extrairTelefones(c),
     plano: textoPlano(primeiro(c, ['planointernet', 'plano', 'servico_plano', 'servico.plano', 'planoDescricao']) ||
       (c.servicos && c.servicos[0] && (c.servicos[0].plano || c.servicos[0].planointernet))),
   })).filter((c) => c.id !== undefined).map((c, i) => {
@@ -87,6 +89,19 @@ function extrairReferencia(c) {
   return v ? String(v).replace(/\s+/g, ' ').trim() : '';
 }
 
+// Todos os telefones do cadastro, só dígitos. Um campo pode ter mais de um ("8399... / 8398...").
+function extrairTelefones(c) {
+  const tels = new Set();
+  for (const [k, v] of achatar(c)) {
+    if (!/(telefone|celular|fone|whats|contato)/.test(k) || /(_id|\.id|id)$/.test(k)) continue;
+    for (const parte of String(v).split(/[\/,;|]|\se\s/)) {
+      const d = parte.replace(/\D/g, '');
+      if (d.length >= 8 && d.length <= 13) tels.add(d);
+    }
+  }
+  return [...tels];
+}
+
 // { a: { b: 1 }, servicos: [{ c: 2 }] } -> [['a.b', 1], ['servicos.0.c', 2]] (só valores simples)
 function achatar(obj, prefixo = '', saida = [], nivel = 0) {
   if (!obj || typeof obj !== 'object' || nivel > 4) return saida;
@@ -106,14 +121,15 @@ function buscarCampo(campos, regex) {
   return achados.length ? String(achados[0][1]).trim() : undefined;
 }
 
-// Se o SGP não mandar endereço reconhecível, mostra só os NOMES dos campos (nunca os valores),
-// uma vez por execução, para dar para ajustar o código sem expor dados de cliente.
+// Se o SGP não mandar endereço ou telefone reconhecível, mostra só os NOMES dos campos (nunca os
+// valores), uma vez por execução, para dar para ajustar o código sem expor dados de cliente.
 let avisouSemEndereco = false;
 function avisarSemEndereco(c, bruto) {
-  if (c.endereco || avisouSemEndereco) return;
+  if ((c.endereco && c.telefones.length) || avisouSemEndereco) return;
   avisouSemEndereco = true;
+  const falta = [!c.endereco && 'endereço', !c.telefones.length && 'telefone'].filter(Boolean).join(' e ');
   const nomes = [...new Set(achatar(bruto).map(([k]) => k.replace(/\.\d+\./g, '.N.')))].join(', ');
-  try { require('./log').registrar(`[SGP] contrato sem endereço reconhecido. Campos recebidos: ${nomes}`); } catch {}
+  try { require('./log').registrar(`[SGP] contrato sem ${falta} reconhecido. Campos recebidos: ${nomes}`); } catch {}
 }
 
 // O endereço pode vir como texto ou como objeto ({ logradouro, numero, bairro, cidade, ... })
@@ -186,14 +202,14 @@ async function verificarAcesso(contrato) {
 const mock = {
   consultarCliente(cpf) {
     if (cpf.endsWith('00')) return [];
-    if (cpf.endsWith('33')) return [{ id: 1003, nome: 'CLIENTE EM DIA', status: 'Ativo', endereco: 'Rua B, 20 - Centro' }];
+    if (cpf.endsWith('33')) return [{ id: 1003, nome: 'CLIENTE EM DIA', status: 'Ativo', endereco: 'Rua B, 20 - Centro', telefones: ['83988887777'] }];
     if (cpf.endsWith('22')) {
       return [
-        { id: 1001, nome: 'CLIENTE TESTE DA SILVA', status: 'Ativo', endereco: 'Rua A, 10 - Centro - Cidade Exemplo/UF', referencia: 'Ao lado da igreja matriz', plano: 'FIBRA 300 MEGA' },
-        { id: 1002, nome: 'CLIENTE TESTE', status: 'Suspenso', endereco: 'Sítio Boa Vista', referencia: 'Depois do açude, porteira azul' },
+        { id: 1001, nome: 'CLIENTE TESTE DA SILVA', status: 'Ativo', endereco: 'Rua A, 10 - Centro - Cidade Exemplo/UF', referencia: 'Ao lado da igreja matriz', plano: 'FIBRA 300 MEGA', telefones: ['83999990000'] },
+        { id: 1002, nome: 'CLIENTE TESTE', status: 'Suspenso', endereco: 'Sítio Boa Vista', referencia: 'Depois do açude, porteira azul', telefones: ['83999990000'] },
       ];
     }
-    return [{ id: 1001, nome: 'CLIENTE TESTE DA SILVA', status: 'Ativo', endereco: { logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: 'Cidade Exemplo', uf: 'UF' }, plano: 'FIBRA 300 MEGA' }].map((c) => ({ ...c, endereco: montarEndereco(c.endereco) }));
+    return [{ id: 1001, nome: 'CLIENTE TESTE DA SILVA', status: 'Ativo', endereco: { logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: 'Cidade Exemplo', uf: 'UF' }, plano: 'FIBRA 300 MEGA' }].map((c) => ({ ...c, endereco: montarEndereco(c.endereco), telefones: [] }));
   },
   titulosAbertos(contrato) {
     if (contrato === 1001) {
