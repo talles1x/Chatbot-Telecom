@@ -2,6 +2,7 @@
 // Os nomes dos campos de resposta variam entre versões do SGP, por isso cada leitura
 // tenta vários nomes. Rode com DEBUG=true para ver a resposta crua e ajustar se precisar.
 const cfg = require('./config');
+const u = require('./util');
 
 const primeiro = (obj, chaves) => {
   for (const k of chaves) {
@@ -153,7 +154,8 @@ async function titulosAbertos(cpfcnpj, contrato) {
       status: String(primeiro(t, ['status', 'situacao']) || '').toLowerCase(),
     }))
     .filter((t) => !t.status || /abert|pend|venc/.test(t.status))
-    .sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento)));
+    // Ordena pela data de verdade (o SGP pode mandar 2026-10-10 ou 10/10/2026); sem data vai pro fim
+    .sort((a, b) => String(u.paraISO(a.vencimento) || '9999').localeCompare(String(u.paraISO(b.vencimento) || '9999')));
 }
 
 // ---------- Promessa de pagamento ----------
