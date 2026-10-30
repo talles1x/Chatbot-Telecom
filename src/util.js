@@ -97,7 +97,14 @@ function normalizar(t) {
     .trim();
 }
 
+// Mesmo telefone? Compara os 8 últimos dígitos (funciona com ou sem 55, DDD e o 9 extra)
+function mesmoNumero(a, b) {
+  const x = soDigitos(a).slice(-8);
+  const y = soDigitos(b).slice(-8);
+  return x.length === 8 && x === y;
+}
+
 module.exports = {
   agoraLocal, dentroDoHorario, paraISO, dataBR, diasDeAtraso, moeda,
-  soDigitos, cpfValido, cnpjValido, esperar, aleatorio, normalizar,
+  soDigitos, cpfValido, cnpjValido, esperar, aleatorio, normalizar, mesmoNumero,
 };

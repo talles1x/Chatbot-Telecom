@@ -34,6 +34,15 @@ module.exports = {
   ignorarNumeros: lista(process.env.IGNORAR_NUMEROS),
   numeroEquipe: lista(process.env.NUMERO_EQUIPE)[0] || '',
   numeroComercial: lista(process.env.NUMERO_COMERCIAL)[0] || '',
+  // Números da equipe (ex.: atendente de um ponto de recebimento): recebem o menu da equipe
+  // (fechar o caixa, avisar pré-cadastro, falar com atendente) em vez do menu de cliente
+  atendentesNumeros: lista(process.env.ATENDENTE_NUMEROS),
+  caixa: {
+    // Usuários do SGP cujas baixas entram no fechamento (vazio = todos os pagamentos do dia)
+    usuarios: (process.env.CAIXA_USUARIOS_SGP || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
+    // Nome que aparece no título do fechamento (ex.: o local de recebimento)
+    nome: process.env.CAIXA_NOME || '',
+  },
   horario: {
     dias: (process.env.HORARIO_DIAS || '1,2,3,4,5,6').split(',').map(Number),
     turnos: lerTurnos(process.env.HORARIO_TURNOS || '08:00-12:00,13:00-17:00'),
