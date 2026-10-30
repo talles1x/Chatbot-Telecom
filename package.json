@@ -2,6 +2,9 @@
   "name": "chatbot-telecom",
   "version": "1.0.0",
   "description": "Chatbot de WhatsApp para provedores de internet (QR code) - financeiro e suporte integrados ao SGP",
+  "author": "Talles Oliveira (https://github.com/talles1x)",
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
