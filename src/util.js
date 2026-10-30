@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Talles Oliveira (github.com/talles1x). Todos os direitos reservados.
+// Uso, cópia ou modificação só com autorização do autor. Veja o arquivo LICENSE.
 const cfg = require('./config');
 
 // Data/hora "de agora" no fuso da empresa

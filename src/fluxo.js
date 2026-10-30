@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Talles Oliveira (github.com/talles1x). Todos os direitos reservados.
+// Uso, cópia ou modificação só com autorização do autor. Veja o arquivo LICENSE.
 // Lógica da conversa. Não sabe nada de WhatsApp: recebe texto e chama enviar().
 // Assim o mesmo fluxo roda no WhatsApp (index.js) e no simulador (simulador.js).
 const cfg = require('./config');
