@@ -1,6 +1,6 @@
 # Chatbot Telecom (WhatsApp por QR code + SGP)
 
-> Desenvolvido por **Talles Oliveira** ([github.com/talles1x](https://github.com/talles1x)). Todos os direitos reservados. Veja [Autor e licença](#autor-e-licença).
+> Desenvolvido por **Talles Oliveira** ([github.com/talles1x](https://github.com/talles1x)). Licença MIT, veja [Autor e licença](#autor-e-licença).
 
 Bot de autoatendimento para provedor de internet, conectado ao WhatsApp por QR code e integrado à API URA do SGP. O menu tem 4 opções: **Financeiro** (2ª via de boleto e liberação de confiança), **Suporte técnico** (triagem do problema e resumo da ocorrência), **Quero contratar** e **Falar com atendente**. O cliente responde digitando o número da opção, *voltar* para o passo anterior ou *0* para o início. O menu sai em texto numerado, que funciona em qualquer celular; a enquete clicável do WhatsApp pode ser ligada com `USAR_ENQUETE=true`, mas nesta versão do WhatsApp Web o toque na enquete nem sempre chega ao bot.
 
@@ -89,6 +89,4 @@ Cada mensagem aparece na janela e fica salva em `logs/bot-AAAA-MM-DD.txt`: `[ent
 
 Projeto desenvolvido por **Talles Oliveira** ([github.com/talles1x](https://github.com/talles1x)).
 
-© 2026 Talles Oliveira. **Todos os direitos reservados.** O código está público apenas para visualização, como portfólio. Copiar, usar (inclusive em projetos comerciais), modificar ou redistribuir este código, no todo ou em parte, exige autorização prévia e por escrito do autor. Os termos completos estão no arquivo [LICENSE](LICENSE).
-
-Para pedir autorização de uso, entre em contato pelo GitHub.
+© 2026 Talles Oliveira. Distribuído sob a **licença MIT**: você pode usar, copiar, modificar e distribuir este código, inclusive em projetos comerciais, desde que mantenha o aviso de copyright e a licença em todas as cópias ou partes substanciais. Os termos completos estão no arquivo [LICENSE](LICENSE).

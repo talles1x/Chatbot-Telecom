@@ -1,5 +1,5 @@
-// Copyright (c) 2026 Talles Oliveira (github.com/talles1x). Todos os direitos reservados.
-// Uso, cópia ou modificação só com autorização do autor. Veja o arquivo LICENSE.
+// Copyright (c) 2026 Talles Oliveira (github.com/talles1x)
+// Licença MIT: pode usar e modificar, mantendo este aviso de autoria. Veja o arquivo LICENSE.
 // Transcrição de áudio LOCAL (Whisper rodando no próprio computador, nada é enviado para fora).
 // Na primeira vez o modelo é baixado (~150 MB no "base") e fica salvo na pasta "modelos".
 const os = require('os');

@@ -1,5 +1,5 @@
-// Copyright (c) 2026 Talles Oliveira (github.com/talles1x). Todos os direitos reservados.
-// Uso, cópia ou modificação só com autorização do autor. Veja o arquivo LICENSE.
+// Copyright (c) 2026 Talles Oliveira (github.com/talles1x)
+// Licença MIT: pode usar e modificar, mantendo este aviso de autoria. Veja o arquivo LICENSE.
 // Guarda em arquivo o que não pode se perder quando o bot reinicia:
 // conversas pausadas (com atendente) e o CPF/contrato lembrado de cada número.
 const fs = require('fs');

@@ -1,5 +1,5 @@
-// Copyright (c) 2026 Talles Oliveira (github.com/talles1x). Todos os direitos reservados.
-// Uso, cópia ou modificação só com autorização do autor. Veja o arquivo LICENSE.
+// Copyright (c) 2026 Talles Oliveira (github.com/talles1x)
+// Licença MIT: pode usar e modificar, mantendo este aviso de autoria. Veja o arquivo LICENSE.
 // Teste das palavras-chave: node teste/entender.test.js
 const e = require('../src/entender');
 let falhas = 0;

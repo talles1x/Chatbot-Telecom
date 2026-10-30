@@ -1,5 +1,5 @@
-// Copyright (c) 2026 Talles Oliveira (github.com/talles1x). Todos os direitos reservados.
-// Uso, cópia ou modificação só com autorização do autor. Veja o arquivo LICENSE.
+// Copyright (c) 2026 Talles Oliveira (github.com/talles1x)
+// Licença MIT: pode usar e modificar, mantendo este aviso de autoria. Veja o arquivo LICENSE.
 // Integração com a API URA do SGP (autenticação por Token + App no corpo da requisição).
 // Os nomes dos campos de resposta variam entre versões do SGP, por isso cada leitura
 // tenta vários nomes. Rode com DEBUG=true para ver a resposta crua e ajustar se precisar.

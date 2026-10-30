@@ -1,5 +1,5 @@
-// Copyright (c) 2026 Talles Oliveira (github.com/talles1x). Todos os direitos reservados.
-// Uso, cópia ou modificação só com autorização do autor. Veja o arquivo LICENSE.
+// Copyright (c) 2026 Talles Oliveira (github.com/talles1x)
+// Licença MIT: pode usar e modificar, mantendo este aviso de autoria. Veja o arquivo LICENSE.
 // Entende o texto livre do cliente (digitado ou transcrito de áudio).
 // Todas as regras de palavras-chave ficam aqui, para ajustar num lugar só.
 // O teste delas fica em teste/entender.test.js (rode: npm test).
