@@ -1,5 +1,7 @@
 # Chatbot Telecom (WhatsApp por QR code + SGP)
 
+> Desenvolvido por **Talles Oliveira** ([github.com/talles1x](https://github.com/talles1x)). Todos os direitos reservados. Veja [Autor e licença](#autor-e-licença).
+
 Bot de autoatendimento para provedor de internet, conectado ao WhatsApp por QR code e integrado à API URA do SGP. O menu tem 4 opções: **Financeiro** (2ª via de boleto e liberação de confiança), **Suporte técnico** (triagem do problema e resumo da ocorrência), **Quero contratar** e **Falar com atendente**. O cliente responde digitando o número da opção, *voltar* para o passo anterior ou *0* para o início. O menu sai em texto numerado, que funciona em qualquer celular; a enquete clicável do WhatsApp pode ser ligada com `USAR_ENQUETE=true`, mas nesta versão do WhatsApp Web o toque na enquete nem sempre chega ao bot.
 
 **Escolha do contrato**: quando o CPF tem mais de um contrato, a lista mostra rua, bairro, cidade e ponto de referência de cada um, com os ativos primeiro e a situação quando não é "Ativo". Cabem 10 na lista; com mais que isso, os cancelados saem da lista e o cliente pode digitar o **número do contrato** (ex.: 4684) ou parte do **endereço/referência** ("rua das flores", "perto da igreja").
@@ -82,3 +84,11 @@ Cada mensagem aparece na janela e fica salva em `logs/bot-AAAA-MM-DD.txt`: `[ent
 - **Erro HTTP 4xx do SGP**: confira token/app e teste `SGP_FORMATO=form`.
 - **Bot parou de conectar depois de um tempo**: rode `npm update whatsapp-web.js` (o WhatsApp Web muda e a biblioteca é atualizada).
 - **Fica parado em "Sincronizando"**: confira se o celular está ligado e com internet; se continuar, feche a janela, apague a pasta `.wwebjs_cache` e abra o `iniciar.bat` de novo.
+
+## Autor e licença
+
+Projeto desenvolvido por **Talles Oliveira** ([github.com/talles1x](https://github.com/talles1x)).
+
+© 2026 Talles Oliveira. **Todos os direitos reservados.** O código está público apenas para visualização, como portfólio. Copiar, usar (inclusive em projetos comerciais), modificar ou redistribuir este código, no todo ou em parte, exige autorização prévia e por escrito do autor. Os termos completos estão no arquivo [LICENSE](LICENSE).
+
+Para pedir autorização de uso, entre em contato pelo GitHub.
