@@ -18,6 +18,7 @@ const MSG = {
       // LGPD: o cliente vê só o necessário para confirmar que é ele (nome abreviado, endereço sem número)
       c.nome ? `👤 Titular: ${nomeLGPD(c.nome)}` : null,
       c.endereco ? `📍 Endereço: ${enderecoLGPD(c.endereco)}` : null,
+      c.referencia ? `🧭 Referência: ${c.referencia}` : null,
       c.status ? `📌 Situação: ${c.status}` : null,
     ].filter(Boolean).join('\n'),
   semBoleto: (c) => `Não encontrei boletos em aberto no contrato *${c.id}*. Está tudo em dia! 🎉`,
@@ -788,6 +789,7 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
       `CPF/CNPJ: ${s.doc}`,
       `Contrato: ${c.id}${c.status ? ` (${c.status})` : ''}`,
       c.endereco ? `Endereço: ${c.endereco}` : null,
+      c.referencia ? `Referência: ${c.referencia}` : null,
       ...linhas,
     ].filter(Boolean).join('\n');
     log(`[ocorrência] ${chatId}\n${resumo}`);
