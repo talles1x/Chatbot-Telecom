@@ -390,7 +390,8 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
       s.etapa = 'suporte_tipo';
       return perguntar(chatId, 'Sem problema! Qual é o problema? 👇', OP.problema);
     }
-    if ((s.etapa === 'financeiro' || s.etapa.startsWith('suporte_')) && s.contratos && s.contratos.length > 1) {
+    if ((s.etapa === 'financeiro' || s.etapa.startsWith('suporte_')) && s.contratos && (s.contratosTodos || s.contratos).length > 1) {
+      if (s.contratosTodos) s.contratos = ordenarContratos(s.contratosTodos);
       s.etapa = 'contrato';
       return perguntarContrato(chatId, s, 'Sem problema! Qual contrato? 👇');
     }
@@ -544,7 +545,8 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
     }
 
     s.doc = doc;
-    s.contratos = contratos;
+    s.contratosTodos = contratos;
+    s.contratos = ordenarContratos(contratos);
     s.tentativas = 0;
     estado.lembrar(chatId, { doc });
 
@@ -564,7 +566,7 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
 
   async function etapaContrato(chatId, s, t) {
     const i = Number(t) - 1;
-    if (!Number.isInteger(i) || i < 0 || i >= s.contratos.length) {
+    if (!Number.isInteger(i) || i < 0 || i >= Math.min(s.contratos.length, MAX_LISTA)) {
       return perguntarContrato(chatId, s, 'Toque no contrato desejado 👇');
     }
     s.contrato = s.contratos[i];
@@ -798,16 +800,21 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
   }
 
   function perguntarContrato(chatId, s, pergunta) {
-    const opcoes = s.contratos.slice(0, 10).map((c, i) => ({
+    const opcoes = s.contratos.slice(0, MAX_LISTA).map((c, i) => ({
       valor: String(i + 1),
       // Endereço + ponto de referência para o cliente reconhecer qual é o contrato dele
       texto: [
         `Contrato ${c.id}`,
         c.endereco ? enderecoLGPD(c.endereco) : null,
         c.referencia ? `Ref: ${c.referencia}` : null,
+        c.status && !/^ativo$/i.test(String(c.status).trim()) ? String(c.status) : null,
       ].filter(Boolean).join(' · ').slice(0, 100),
     }));
     opcoes.push({ valor: 'v', texto: '⬅️ Voltar (digitar outro CPF)' });
+    const total = (s.contratosTodos || s.contratos).length;
+    if (total > opcoes.length - 1) {
+      pergunta += `\n\n_Mostrando ${opcoes.length - 1} de ${total}. Não achou o seu? Digite o *número do contrato* ou o *nome da rua*._`;
+    }
     return perguntar(chatId, pergunta, opcoes);
   }
 
@@ -920,6 +927,19 @@ function mascarar(d) {
   if (d.length === 11) return `***.${d.slice(3, 6)}.${d.slice(6, 9)}-**`;
   if (d.length === 14) return `**.${d.slice(2, 5)}.${d.slice(5, 8)}/****-**`;
   return '***';
+}
+
+// Quantos contratos cabem na lista (o resto o cliente acha digitando o número ou a rua)
+const MAX_LISTA = 10;
+
+// Ativos primeiro, depois suspensos/bloqueados, por último cancelados.
+// Cancelados só saem da lista quando não cabe tudo (continuam valendo pelo número do contrato).
+function ordenarContratos(lista) {
+  const peso = (c) => (/cancel|inativ|encerr|desativ|rescind/i.test(String(c.status)) ? 2 : /suspen|bloq|reduz/i.test(String(c.status)) ? 1 : 0);
+  const ordenados = [...lista].sort((a, b) => peso(a) - peso(b));
+  if (ordenados.length <= MAX_LISTA) return ordenados;
+  const semCancelados = ordenados.filter((c) => peso(c) < 2);
+  return semCancelados.length ? semCancelados : ordenados;
 }
 
 // LGPD: "MARIA DA SILVA SOUZA" -> "Maria S. S."
