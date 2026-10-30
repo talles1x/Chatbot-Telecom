@@ -47,6 +47,7 @@ async function consultarCliente(cpfcnpj) {
     nome: primeiro(c, ['razaoSocial', 'nome', 'cliente.nome', 'clienteNome']) || '',
     status: primeiro(c, ['contratoStatusDisplay', 'status_display', 'statusDisplay', 'status']) || '',
     endereco: extrairEndereco(c),
+    referencia: extrairReferencia(c),
     plano: textoPlano(primeiro(c, ['planointernet', 'plano', 'servico_plano', 'servico.plano', 'planoDescricao']) ||
       (c.servicos && c.servicos[0] && (c.servicos[0].plano || c.servicos[0].planointernet))),
   })).filter((c) => c.id !== undefined);
@@ -75,6 +76,11 @@ function extrairEndereco(c) {
     cidade,
     uf: buscarCampo(campos, /(^|[._])uf$/),
   });
+}
+
+function extrairReferencia(c) {
+  const v = buscarCampo(achatar(c), /(ponto_?de_?referencia|ponto_?referencia|pontoref|referencia)$/);
+  return v ? String(v).replace(/\s+/g, ' ').trim() : '';
 }
 
 // { a: { b: 1 }, servicos: [{ c: 2 }] } -> [['a.b', 1], ['servicos.0.c', 2]] (só valores simples)
@@ -168,8 +174,8 @@ const mock = {
     if (cpf.endsWith('33')) return [{ id: 1003, nome: 'CLIENTE EM DIA', status: 'Ativo', endereco: 'Rua B, 20 - Centro' }];
     if (cpf.endsWith('22')) {
       return [
-        { id: 1001, nome: 'CLIENTE TESTE DA SILVA', status: 'Ativo', endereco: 'Rua A, 10 - Centro - Cidade Exemplo/UF', plano: 'FIBRA 300 MEGA' },
-        { id: 1002, nome: 'CLIENTE TESTE', status: 'Suspenso', endereco: 'Sítio Boa Vista' },
+        { id: 1001, nome: 'CLIENTE TESTE DA SILVA', status: 'Ativo', endereco: 'Rua A, 10 - Centro - Cidade Exemplo/UF', referencia: 'Ao lado da igreja matriz', plano: 'FIBRA 300 MEGA' },
+        { id: 1002, nome: 'CLIENTE TESTE', status: 'Suspenso', endereco: 'Sítio Boa Vista', referencia: 'Depois do açude, porteira azul' },
       ];
     }
     return [{ id: 1001, nome: 'CLIENTE TESTE DA SILVA', status: 'Ativo', endereco: { logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: 'Cidade Exemplo', uf: 'UF' }, plano: 'FIBRA 300 MEGA' }].map((c) => ({ ...c, endereco: montarEndereco(c.endereco) }));
