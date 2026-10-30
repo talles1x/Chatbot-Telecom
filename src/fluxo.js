@@ -12,15 +12,20 @@ const MSG = {
   pedirDoc: (inicio = 'Certo!') => `${inicio} Me envie o *CPF ou CNPJ* do titular do contrato (pode ser só os números).\n\n_Se quiser voltar, digite *voltar*._`,
   docInvalido: 'Esse CPF/CNPJ não parece válido. Confira e envie de novo, ou digite *9* para falar com um atendente.',
   naoEncontrado: 'Não encontrei nenhum contrato com esse CPF/CNPJ. Confira os números e envie de novo, ou digite *9* para falar com um atendente.',
-  contratoInfo: (c) =>
+  // completo = identidade confirmada. Sem confirmação, não mostra nome, rua nem referência.
+  contratoInfo: (c, completo = true) =>
     [
       `📋 *Contrato ${c.id}*`,
       // LGPD: o cliente vê só o necessário para confirmar que é ele (nome abreviado, endereço sem número)
-      c.nome ? `👤 Titular: ${nomeLGPD(c.nome)}` : null,
-      c.endereco ? `📍 Endereço: ${enderecoLGPD(c.endereco)}` : null,
-      c.referencia ? `🧭 Referência: ${c.referencia}` : null,
+      completo && c.nome ? `👤 Titular: ${nomeLGPD(c.nome)}` : null,
+      completo && c.endereco ? `📍 Endereço: ${enderecoLGPD(c.endereco)}` : null,
+      !completo && regiaoLGPD(c.endereco) ? `📍 Região: ${regiaoLGPD(c.endereco)}` : null,
+      completo && c.referencia ? `🧭 Referência: ${c.referencia}` : null,
       c.status ? `📌 Situação: ${c.status}` : null,
     ].filter(Boolean).join('\n'),
+  pedirVerificacao:
+    'Para proteger seus dados 🔒, me diga os *4 últimos dígitos* de um telefone cadastrado no seu contrato.\n\n' +
+    '_Se não souber, digite *pular*._',
   semBoleto: (c) => `Não encontrei boletos em aberto no contrato *${c.id}*. Está tudo em dia! 🎉`,
   erroSistema: 'Tive um problema para consultar o sistema agora. 😕 Vou te passar para um atendente.',
   atendenteDentro: 'Certo! Já avisei nossa equipe e em instantes um atendente vai falar com você por aqui. 😊',
@@ -109,7 +114,11 @@ function perguntarComoTexto(enviar) {
     );
 }
 
-function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () => {}, aoOcorrencia = async () => {}, log = console.log, estado = criarEstado() }) {
+function criarFluxo({
+  enviar, enviarImagem, perguntar, aoTransferir = async () => {}, aoOcorrencia = async () => {}, log = console.log, estado = criarEstado(),
+  // Número de telefone real da conversa (no WhatsApp, IDs @lid precisam ser convertidos)
+  numeroDoChat = async (chatId) => String(chatId).split('@')[0].replace(/\D/g, ''),
+}) {
   const perguntarBase = perguntar || perguntarComoTexto(enviar);
   // Guarda as opções da última pergunta, para entender respostas escritas/faladas ("já reiniciei", "sim")
   perguntar = (chatId, pergunta, opcoes) => {
@@ -157,6 +166,7 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
   const TEXTO_LEMBRETE = {
     doc: 'É só me mandar o *CPF ou CNPJ* do titular que eu continuo. 😊',
     contrato: 'É só tocar no contrato desejado que eu continuo. 😊',
+    verificar: 'É só me mandar os *4 últimos dígitos* de um telefone do cadastro (ou digite *pular*) que eu continuo. 😊',
     confirmar_doc: 'É só tocar em uma das opções acima que eu continuo. 😊',
     suporte_desc: 'É só me contar o que está acontecendo (pode ser áudio) que eu registro seu chamado. 😊',
     venda_local: 'É só me dizer sua cidade e bairro que eu continuo seu cadastro. 😊',
@@ -349,6 +359,8 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
           return await etapaVendaNome(chatId, s, texto);
         case 'venda_uso':
           return await etapaVendaUso(chatId, s, t);
+        case 'verificar':
+          return await etapaVerificar(chatId, s, t, texto);
         case 'contrato':
           return await etapaContrato(chatId, s, t, texto);
         case 'financeiro':
@@ -395,7 +407,7 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
       s.etapa = 'contrato';
       return perguntarContrato(chatId, s, 'Sem problema! Qual contrato? 👇');
     }
-    if (s.etapa === 'financeiro' || s.etapa === 'contrato' || s.etapa === 'acordo' || s.etapa.startsWith('suporte_')) {
+    if (['financeiro', 'contrato', 'acordo', 'verificar'].includes(s.etapa) || s.etapa.startsWith('suporte_')) {
       s.etapa = 'doc';
       s.doc = s.contratos = s.contrato = undefined;
       return enviar(chatId, MSG.pedirDoc('Sem problema!'));
@@ -549,19 +561,68 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
     s.contratos = ordenarContratos(contratos);
     s.tentativas = 0;
     estado.lembrar(chatId, { doc });
+    s.contratoPreferido = contratoPreferido;
 
-    const preferido = contratoPreferido !== undefined && contratos.find((c) => String(c.id) === String(contratoPreferido));
-    if (contratos.length === 1 || preferido) {
-      s.contrato = preferido || contratos[0];
+    // Segurança/LGPD: nome, rua e ponto de referência só aparecem se o WhatsApp for do titular.
+    // Se o número não bater com o cadastro, pede os 4 últimos dígitos de um telefone cadastrado.
+    s.verificado = await identidadeConfirmada(chatId, doc, contratos);
+    if (!s.verificado && telefonesDe(contratos).length) {
+      s.etapa = 'verificar';
+      s.tentativasVerif = 0;
+      return enviar(chatId, MSG.pedirVerificacao);
+    }
+    return mostrarContratos(chatId, s);
+  }
+
+  async function identidadeConfirmada(chatId, doc, contratos) {
+    const lembrado = estado.cliente(chatId);
+    if (lembrado && lembrado.verificadoDoc === doc) return true;
+    const numero = await Promise.resolve(numeroDoChat(chatId)).catch(() => '');
+    const final = String(numero || '').replace(/\D/g, '').slice(-8);
+    if (final.length < 8) return false;
+    // Compara os 8 últimos dígitos: funciona com ou sem 55, DDD e o 9 extra do celular
+    const ok = telefonesDe(contratos).some((tel) => tel.slice(-8) === final);
+    if (ok) estado.lembrar(chatId, { verificadoDoc: doc });
+    return ok;
+  }
+
+  async function etapaVerificar(chatId, s, t, texto) {
+    if (/^(pular|pula|nao sei|nao lembro|nao tenho|sei la|nao)\b/.test(t)) return seguirSemVerificar(chatId, s, 'Sem problema!');
+    const digitos = u.soDigitos(texto);
+    if (digitos.length >= 4 && telefonesDe(s.contratosTodos || s.contratos).some((tel) => tel.endsWith(digitos.slice(-4)))) {
+      s.verificado = true;
+      estado.lembrar(chatId, { verificadoDoc: s.doc });
+      await enviar(chatId, 'Confirmado! ✅');
+      return mostrarContratos(chatId, s);
+    }
+    s.tentativasVerif = (s.tentativasVerif || 0) + 1;
+    if (s.tentativasVerif >= 2) return seguirSemVerificar(chatId, s, 'Esses números não conferem com o cadastro.');
+    return enviar(chatId, 'Esses números não conferem com o cadastro 🤔 Confira e envie de novo, ou digite *pular*.');
+  }
+
+  // Segue o atendimento (boleto, suporte...) sem mostrar nome, rua e referência
+  async function seguirSemVerificar(chatId, s, inicio) {
+    s.verificado = false;
+    log(`[lgpd] ${chatId}: identidade não confirmada, seguindo sem mostrar dados do cadastro`);
+    await enviar(chatId, `${inicio} Vou continuar, mas por segurança não vou mostrar nome e endereço do cadastro. 🔒`);
+    return mostrarContratos(chatId, s);
+  }
+
+  async function mostrarContratos(chatId, s) {
+    const todos = s.contratosTodos || s.contratos;
+    const preferido = s.contratoPreferido !== undefined && todos.find((c) => String(c.id) === String(s.contratoPreferido));
+    delete s.contratoPreferido;
+    if (todos.length === 1 || preferido) {
+      s.contrato = preferido || todos[0];
       estado.lembrar(chatId, { contrato: s.contrato.id });
-      const nome = (s.contrato.nome || '').split(' ')[0];
-      const saud = nome ? `Encontrei seu cadastro, ${capitalizar(nome)}! ✅\n\n` : 'Encontrei seu cadastro! ✅\n\n';
-      await enviar(chatId, saud + MSG.contratoInfo(s.contrato));
+      const nome = s.verificado ? (s.contrato.nome || '').split(' ')[0] : '';
+      const saud = nome ? `Encontrei seu cadastro, ${capitalizar(nome)}! ✅\n\n` : 'Encontrei o cadastro! ✅\n\n';
+      await enviar(chatId, saud + MSG.contratoInfo(s.contrato, s.verificado));
       return aposContrato(chatId, s);
     }
 
     s.etapa = 'contrato';
-    return perguntarContrato(chatId, s, `Encontrei ${contratos.length} contratos. Qual deles? 👇`);
+    return perguntarContrato(chatId, s, `Encontrei ${todos.length} contratos. Qual deles? 👇`);
   }
 
   // Aceita a opção da lista, o número do contrato (ex.: 4684) ou parte do endereço/referência
@@ -590,7 +651,7 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
     if (!c) return perguntarContrato(chatId, s, 'Não encontrei esse contrato 🤔 Escolha uma das opções 👇');
     s.contrato = c;
     estado.lembrar(chatId, { contrato: s.contrato.id });
-    await enviar(chatId, MSG.contratoInfo(s.contrato));
+    await enviar(chatId, MSG.contratoInfo(s.contrato, s.verificado));
     return aposContrato(chatId, s);
   }
 
@@ -667,6 +728,7 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
         '🤝 *Pedido de acordo (bot)*',
         `Cliente: ${s.contrato.nome || '-'}`,
         `CPF/CNPJ: ${s.doc}`,
+        `Identidade: ${s.verificado ? 'confirmada (telefone do cadastro)' : '⚠️ NÃO confirmada'}`,
         `Contrato: ${s.contrato.id}${s.contrato.status ? ` (${s.contrato.status})` : ''}`,
         `Faturas em aberto: ${a.qtd || '-'}`,
         `Total em aberto: ${a.total ? u.moeda(a.total) : '-'} (sem juros/multa)`,
@@ -808,6 +870,7 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
       '🛠️ *Nova ocorrência (bot)*',
       `Cliente: ${c.nome || '-'}`,
       `CPF/CNPJ: ${s.doc}`,
+      `Identidade: ${s.verificado ? 'confirmada (telefone do cadastro)' : '⚠️ NÃO confirmada'}`,
       `Contrato: ${c.id}${c.status ? ` (${c.status})` : ''}`,
       c.endereco ? `Endereço: ${c.endereco}` : null,
       c.referencia ? `Referência: ${c.referencia}` : null,
@@ -822,10 +885,11 @@ function criarFluxo({ enviar, enviarImagem, perguntar, aoTransferir = async () =
     const opcoes = s.contratos.slice(0, MAX_LISTA).map((c, i) => ({
       valor: String(i + 1),
       // Endereço + ponto de referência para o cliente reconhecer qual é o contrato dele
+      // (sem identidade confirmada: só bairro/cidade)
       texto: [
         `Contrato ${c.id}`,
-        c.endereco ? enderecoLGPD(c.endereco) : null,
-        c.referencia ? `Ref: ${c.referencia}` : null,
+        s.verificado ? (c.endereco ? enderecoLGPD(c.endereco) : null) : regiaoLGPD(c.endereco),
+        s.verificado && c.referencia ? `Ref: ${c.referencia}` : null,
         c.status && !/^ativo$/i.test(String(c.status).trim()) ? String(c.status) : null,
       ].filter(Boolean).join(' · ').slice(0, 100),
     }));
@@ -968,6 +1032,18 @@ function nomeLGPD(n) {
   const partes = nomeBonito(n).split(' ').filter((p) => p && !['da', 'de', 'do', 'das', 'dos', 'e'].includes(p));
   if (!partes.length) return '';
   return [partes[0], ...partes.slice(1).map((p) => `${p.charAt(0)}.`)].join(' ');
+}
+
+// Telefones de todos os contratos do CPF (só dígitos)
+function telefonesDe(contratos) {
+  return [...new Set((contratos || []).flatMap((c) => c.telefones || []))];
+}
+
+// Sem identidade confirmada: só bairro e cidade ("Rua A, 10 - Centro - Ingá/PB" -> "Centro - Ingá/PB")
+function regiaoLGPD(e) {
+  if (!e) return '';
+  const partes = enderecoLGPD(e).split(' - ');
+  return partes.length > 1 ? partes.slice(1).join(' - ') : '';
 }
 
 // LGPD: mostra rua, bairro e cidade, sem número da casa, complemento nem CEP
