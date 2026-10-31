@@ -97,6 +97,11 @@ function normalizar(t) {
     .trim();
 }
 
+// Tipos de mensagem que o próprio cliente manda. O resto (e2e_notification, notification_template,
+// call_log, revoked, reaction, protocol...) são avisos do WhatsApp e não podem disparar o atendimento.
+const TIPOS_DO_CLIENTE = new Set(['chat', 'sticker', 'ptt', 'audio', 'image', 'video', 'document', 'location', 'vcard', 'multi_vcard', 'list_response', 'buttons_response']);
+const ehMensagemDoCliente = (tipo) => TIPOS_DO_CLIENTE.has(tipo);
+
 // Mesmo telefone? Compara os 8 últimos dígitos (funciona com ou sem 55, DDD e o 9 extra)
 function mesmoNumero(a, b) {
   const x = soDigitos(a).slice(-8);
@@ -106,5 +111,5 @@ function mesmoNumero(a, b) {
 
 module.exports = {
   agoraLocal, dentroDoHorario, paraISO, dataBR, diasDeAtraso, moeda,
-  soDigitos, cpfValido, cnpjValido, esperar, aleatorio, normalizar, mesmoNumero,
+  soDigitos, cpfValido, cnpjValido, esperar, aleatorio, normalizar, mesmoNumero, ehMensagemDoCliente,
 };

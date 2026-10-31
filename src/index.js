@@ -397,6 +397,11 @@ client.on('message', async (msg) => {
       registrar(`[ignorada] ${msg.from} (${msg.type}) - grupo/status ou mensagem de antes do bot ligar (${atraso}s atrás)`);
       return;
     }
+    // Avisos automáticos do WhatsApp (criptografia, conta comercial, chamada perdida, mensagem apagada...)
+    if (!u.ehMensagemDoCliente(msg.type)) {
+      registrar(`[ignorada] ${msg.from} (${msg.type}) - aviso do sistema do WhatsApp, não é mensagem do cliente`);
+      return;
+    }
     if (!(await numeroPermitido(msg))) return;
 
     const chatId = msg.from;
