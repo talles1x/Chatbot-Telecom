@@ -211,22 +211,27 @@ async function enviarImagem(chatId, arquivo, legenda) {
 
 // Gera um PDF a partir de HTML no navegador que o bot já usa (WhatsApp Web) e envia como documento
 async function enviarPdf(chatId, html, nomeArquivo, legenda) {
-  if (!client.pupBrowser) throw new Error('navegador do WhatsApp não está pronto');
-  const page = await client.pupBrowser.newPage();
+  if (!client.pupBrowser) throw new Error('navegador do WhatsApp não está pronto (client.pupBrowser vazio)');
+  // Cada etapa diz onde falhou, para o log mostrar a causa exata
+  const etapa = async (nome, promessa) => {
+    try { return await promessa; } catch (e) { throw new Error(`[${nome}] ${e && e.message ? e.message : e}`); }
+  };
+  const page = await etapa('abrir aba', client.pupBrowser.newPage());
   let pdf;
   try {
-    await page.setContent(html, { waitUntil: 'load' });
-    pdf = await comLimite(page.pdf({ format: 'A4', printBackground: true, margin: { top: '16mm', bottom: '16mm', left: '14mm', right: '14mm' } }), 30000);
+    await etapa('montar página', page.setContent(html, { waitUntil: 'load' }));
+    pdf = await etapa('gerar PDF', comLimite(page.pdf({ format: 'A4', printBackground: true, margin: { top: '16mm', bottom: '16mm', left: '14mm', right: '14mm' } }), 30000));
   } finally {
     await page.close().catch(() => {});
   }
+  registrar(`[caixa] PDF gerado (${Math.round(pdf.length / 1024)} KB), enviando...`);
   const media = new MessageMedia('application/pdf', Buffer.from(pdf).toString('base64'), nomeArquivo);
   const chat = await pegarChat(chatId);
   if (chat) await chat.sendStateTyping().catch(() => {});
   await u.esperar(u.aleatorio(cfg.delay.min, cfg.delay.max));
   // Marca como envio do bot (legenda e nome do arquivo), para não confundir com o atendente
   for (const k of [chave(chatId, legenda), chave(chatId, nomeArquivo)]) enviandoAgora.set(k, (enviandoAgora.get(k) || 0) + 1);
-  await mandar(chatId, media, { caption: legenda, sendMediaAsDocument: true });
+  await etapa('enviar no WhatsApp', mandar(chatId, media, { caption: legenda, sendMediaAsDocument: true }));
   registrar(`[bot →] ${chatId}: [PDF ${nomeArquivo}] "${resumo(legenda, 80)}"`);
   if (chat) await chat.clearState().catch(() => {});
 }

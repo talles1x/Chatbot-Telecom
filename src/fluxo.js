@@ -527,7 +527,8 @@ function criarFluxo({
         await enviarPdf(chatId, html, nome, resumoTxt);
         return;
       } catch (e) {
-        log(`[caixa] não consegui gerar/enviar o PDF (${e.message}), mandando em texto`);
+        // Vai para o arquivo de log (o log() comum só aparece na janela)
+        registrar(`[caixa] não consegui gerar/enviar o PDF, mandando em texto: ${e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e}`);
       }
     }
     await enviar(chatId, resumoTxt);
