@@ -9,7 +9,8 @@ const conf = (nome, obtido, esperado, frase) => {
 const INT = {
   'oi': null, 'bom dia': null, 'boa tarde, tudo bem?': null, 'olá': null,
   'preciso do boleto': 'financeiro', 'manda meu bolet pfv': 'financeiro', 'quero a 2 via': 'financeiro', 'segunda via da fatura': 'financeiro',
-  'qual o pix?': 'financeiro', 'quando vence minha conta de internet': 'financeiro', 'minha internet foi bloqueada': 'financeiro',
+  'qual o pix?': 'financeiro', 'me manda a chave': 'financeiro', 'manda a chave pix pra eu pagar': 'financeiro', 'qr code': 'financeiro',
+  'manda o copia e cola': 'financeiro', 'quero pagar minha internet': 'financeiro', 'qual a chave do wifi': 'suporte', 'quando vence minha conta de internet': 'financeiro', 'minha internet foi bloqueada': 'financeiro',
   'quero fazer a promessa': 'financeiro', 'libera minha internet por favor': 'financeiro', 'preciso de uma liberação de confiança': 'financeiro',
   'to sem internet': 'suporte', 'sem net desde ontem': 'suporte', 'minha net caiu': 'suporte', 'a internet ta lenta': 'suporte',
   'internet caindo toda hora': 'suporte', 'a luz do aparelho ta vermelha': 'suporte', 'o wifi nao pega no quarto': 'suporte',

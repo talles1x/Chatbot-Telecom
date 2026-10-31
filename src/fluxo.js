@@ -90,7 +90,7 @@ const OP = {
     { valor: 'n', texto: '⏭️ Agora não', chave: /^(nao|agora nao|depois|outra hora|nao quero|mais tarde)\b/, prioridade: -1 },
   ],
   financeiro: [
-    { valor: '1', texto: '📄 2ª via do boleto', chave: /\b(boleto|fatura|segunda via|pix|codigo|linha digitavel|pagar)\b/ },
+    { valor: '1', texto: '📄 2ª via do boleto', chave: /\b(boleto|fatura|segunda via|pix|chave|qr ?code|copia e cola|codigo|linha digitavel|pagar)\b/ },
     { valor: '2', texto: '🔓 Liberação de confiança', chave: /\b(liber|confianca|promessa|desbloq)/ },
     { valor: 'v', texto: '⬅️ Voltar (trocar CPF/contrato)' },
     { valor: '9', texto: '👤 Falar com um atendente' },
@@ -622,7 +622,8 @@ function criarFluxo({
     }
     s.destino = intencao;
     // Pediu o boleto com todas as letras: depois de achar o cadastro já manda
-    if (intencao === 'financeiro' && /boleto|fatura|segunda via|2a via|\bpix\b/.test(u.normalizar(texto))) s.acaoDireta = 'boleto';
+    // Quem pede chave PIX, QR code, copia e cola ou "quero pagar" recebe o boleto direto (já vai com o PIX)
+    if (intencao === 'financeiro' && /boleto|fatura|segunda via|2a via|\bpix\b|\bchave\b|\bqr ?code\b|copia e cola|\bpagar\b|\bcodigo (de barras|pra pagar|para pagar)\b/.test(u.normalizar(texto))) s.acaoDireta = 'boleto';
     // CPF já veio numa mensagem anterior
     if (s.docPendente) {
       const doc = s.docPendente;
