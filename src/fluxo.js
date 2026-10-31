@@ -307,6 +307,13 @@ function criarFluxo({
       return enviar(chatId, 'Por nada! 😊 Quando precisar, é só chamar.');
     }
 
+    // Cliente de suporte avisa que a internet voltou ("já voltou, obrigado"): encerra em qualquer etapa
+    if (!naoTexto && s && !expirou && (s.destino === 'suporte' || s.etapa.startsWith('suporte_')) && ent.ehResolvido(texto)) {
+      log(`[suporte] ${chatId}: cliente avisou que resolveu`);
+      sessoes.delete(chatId);
+      return enviar(chatId, 'Que ótimo que voltou! 🎉 Se precisar de algo mais, é só mandar mensagem.');
+    }
+
     // No suporte, áudio/foto valem como descrição do problema
     if (naoTexto && s && !expirou && s.etapa === 'suporte_desc') {
       s.visto = Date.now();
@@ -776,7 +783,7 @@ function criarFluxo({
   }
 
   async function etapaVerificar(chatId, s, t, texto) {
-    if (/^(pular|pula|nao sei|nao lembro|nao tenho|sei la|nao)\b/.test(t)) return seguirSemVerificar(chatId, s, 'Sem problema!');
+    if (/^(pular|pula|nao sei|nao lembro|nao tenho|nao tem|sei la)\b|^nao$/.test(t)) return seguirSemVerificar(chatId, s, 'Sem problema!');
     const digitos = u.soDigitos(texto);
     if (digitos.length >= 4 && telefonesDe(s.contratosTodos || s.contratos).some((tel) => tel.endsWith(digitos.slice(-4)))) {
       s.verificado = true;
@@ -784,6 +791,8 @@ function criarFluxo({
       await enviar(chatId, 'Confirmado! ✅');
       return mostrarContratos(chatId, s);
     }
+    // Texto sem números não conta como tentativa errada: só lembra o que precisa
+    if (!digitos.length) return enviar(chatId, 'Para continuar, me manda só os *4 últimos dígitos* de um telefone cadastrado no seu contrato.\n\n_Se não souber, digite *pular*._');
     s.tentativasVerif = (s.tentativasVerif || 0) + 1;
     if (s.tentativasVerif >= 2) return seguirSemVerificar(chatId, s, 'Esses números não conferem com o cadastro.');
     return enviar(chatId, 'Esses números não conferem com o cadastro 🤔 Confira e envie de novo, ou digite *pular*.');

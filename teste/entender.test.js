@@ -62,6 +62,13 @@ const OPC = {
   bloqueado: { 'quero a liberação': 'p', 'libera ai': 'p', 'manda o boleto': 'b', 'vou pagar no pix': 'b', 'continuar com o suporte': 'c' },
   financeiro: { 'boleto': '1', 'quero a 2ª via': '1', 'manda o pix': '1', 'a liberação de confiança': '2', 'desbloqueia': '2' },
 };
+// ---------- Problema resolvido ----------
+const RES = { 'voltou graça a deus': true, 'bom dia já voltou já obrigado': true, 'ja ta funcionando': true, 'resolveu, valeu': true,
+  'deu certo obrigado': true, 'agora ta normal': true, 'nao voltou': false, 'voltou a cair': false, 'vai e volta': false, 'ainda nao voltou': false,
+  'continua sem internet': false, 'oi': false, '1234': false, 'a internet voltou mas ta lenta': false,
+  'voltou mas cai toda hora': false, 'tinha voltado mas caiu de novo': false };
+for (const [f, esp] of Object.entries(RES)) conf('resolvido', e.ehResolvido(f), esp, f);
+
 for (const [lista, casos] of Object.entries(OPC)) {
   for (const [f, esp] of Object.entries(casos)) conf(`opção ${lista}`, e.casarOpcao(f, OP[lista]), esp, f);
 }

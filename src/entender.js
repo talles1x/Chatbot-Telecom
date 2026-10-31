@@ -62,6 +62,14 @@ const PALAVRAS_AGRADECIMENTO = new Set(
     .split(' ')
 );
 const NUCLEO_AGRADECIMENTO = /\besta bom\b|\b(obrigad[oa]|valeu|ok|okay|beleza|certo|show|top|perfeito|otimo|massa|entendi|combinado|tmj|joia|agradeco|grat[oa]|gratidao|tchau|flw|falou|amem|resolvido|resolveu|certinho)\b/;
+// ---------- "Já voltou", "resolveu", "tá funcionando": problema resolvido ----------
+const RESOLVIDO = /\b(ja )?voltou\b|\b(ja )?(esta|ta) funcionando\b|\bfuncionou\b|\bresolveu\b|\bresolvido\b|\bnormalizou\b|\b(ja )?(esta|ta) normal\b|\bvoltou ao normal\b|\bdeu certo\b/;
+const NAO_RESOLVIDO = /\bnao (voltou|funcionou|resolveu|normalizou|deu certo|(esta|ta) (funcionando|normal))\b|\bvoltou a (cair|ficar|parar|travar)\b|\bvolta e cai\b|\bvai e volta\b|\bainda nao\b|\bcontinua\b|\b(caiu|parou) de novo\b|\bmas\b.*\b(lent|cai|cain|trav|ruim|fraca|oscil|para|parando)/;
+function ehResolvido(texto) {
+  const t = limpar(texto);
+  return !!t && RESOLVIDO.test(t) && !NAO_RESOLVIDO.test(t);
+}
+
 function ehAgradecimento(texto) {
   const bruto = u.normalizar(texto);
   if (bruto && !/[a-z0-9]/.test(bruto)) return true; // só emoji/pontuação ("👍", "🙏")
@@ -102,4 +110,4 @@ function casarOpcao(texto, opcoes) {
   return null;
 }
 
-module.exports = { limpar, detectarIntencao, querAtendente, ehIrritado, ehAgradecimento, extrairDoc, casarOpcao };
+module.exports = { limpar, detectarIntencao, querAtendente, ehIrritado, ehAgradecimento, ehResolvido, extrairDoc, casarOpcao };
