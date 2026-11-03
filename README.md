@@ -79,6 +79,17 @@ Os números em `ATENDENTE_NUMEROS` (por exemplo, o atendente de um ponto de rece
 
 No simulador, teste com `ATENDENTE_NUMEROS` e `SIMULADOR_NUMERO` iguais e `npm run simular:mock` (usuário de teste: `caixa.teste`); o PDF do fechamento fica salvo na pasta `dados`.
 
+## Menu dos técnicos
+
+Os números em `TECNICO_NUMEROS` recebem outro menu, separado do da equipe:
+
+- **Consultar cliente**: pelo número do contrato ou CPF/CNPJ, mostra nome completo, endereço com número, ponto de referência, plano, telefones e se a conexão está online (até 5 contratos por consulta).
+- **Ver se está online**: mostra 🟢 online / 🔴 offline de cada contrato do cliente (até 10).
+- **Criar ocorrência**: pede o contrato (se o CPF tiver vários, o técnico escolhe) e a descrição, e abre o chamado direto no SGP, respondendo com o protocolo. Se o SGP recusar (por exemplo, token sem permissão para abrir chamado), o resumo fica na conversa e vai para o `NUMERO_EQUIPE`, para abrirem manualmente.
+- **Falar com atendente**: passa a conversa para uma pessoa.
+
+Em qualquer passo, *0* volta ao menu. Os técnicos não passam pela verificação de titular nem pelo limite de CPFs por dia, porque são da equipe.
+
 ## Cuidados contra banimento
 
 O bot já mostra "digitando…" com tempo variável antes de cada resposta, só responde a quem mandou mensagem, ignora grupos e mensagens antigas e não faz disparo em massa. Mesmo assim, conexão por QR code não é oficial do WhatsApp e sempre existe algum risco. Não use o bot para mandar mensagens em massa ou de cobrança ativa.
