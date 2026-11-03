@@ -38,7 +38,11 @@ module.exports = {
   // (fechar o caixa, avisar pré-cadastro, falar com atendente) em vez do menu de cliente
   atendentesNumeros: lista(process.env.ATENDENTE_NUMEROS),
   // Números dos técnicos: menu próprio (consultar cliente, ver se está online, criar ocorrência, atendente)
-  tecnicosNumeros: lista(process.env.TECNICO_NUMEROS),
+  // Aceita "558399999999" ou "558399999999=Fulano" (com o nome, o bot cumprimenta e assina as ocorrências)
+  tecnicos: (process.env.TECNICO_NUMEROS || '').split(',').map((t) => {
+    const [numero, ...nome] = t.split('=');
+    return { numero: numero.replace(/\D/g, ''), nome: nome.join('=').trim() };
+  }).filter((t) => t.numero),
   caixa: {
     // Usuários do SGP cujas baixas entram no fechamento (vazio = todos os pagamentos do dia)
     usuarios: (process.env.CAIXA_USUARIOS_SGP || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),

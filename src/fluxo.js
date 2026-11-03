@@ -426,17 +426,24 @@ function criarFluxo({
   }
 
   // ---------- Técnicos (TECNICO_NUMEROS) ----------
-  const cacheTecnico = new Map();
-  async function ehTecnico(chatId) {
-    if (!cfg.tecnicosNumeros.length) return false;
+  const cacheTecnico = new Map(); // chatId -> { numero, nome } ou null
+  async function tecnicoDe(chatId) {
+    if (!cfg.tecnicos.length) return null;
     if (!cacheTecnico.has(chatId)) {
       const numero = await Promise.resolve(numeroDoChat(chatId)).catch(() => '');
-      cacheTecnico.set(chatId, cfg.tecnicosNumeros.some((n) => u.mesmoNumero(n, numero)));
+      cacheTecnico.set(chatId, cfg.tecnicos.find((t) => u.mesmoNumero(t.numero, numero)) || null);
     }
     return cacheTecnico.get(chatId);
   }
+  const ehTecnico = async (chatId) => !!(await tecnicoDe(chatId));
 
-  const menuTecnico = (chatId, pergunta = 'Olá! 👋 O que você precisa? 👇') => perguntar(chatId, pergunta, OP.tecnico);
+  const menuTecnico = async (chatId, pergunta) => {
+    if (!pergunta) {
+      const tec = await tecnicoDe(chatId);
+      pergunta = `Olá${tec && tec.nome ? `, ${tec.nome}` : ''}! 👋 O que você precisa? 👇`;
+    }
+    return perguntar(chatId, pergunta, OP.tecnico);
+  };
   const PEDIR_CLIENTE = 'Me manda o *número do contrato* ou o *CPF/CNPJ* do cliente.\n\n_Para voltar ao menu, digite *0*._';
 
   async function receberTecnico(chatId, s, texto, { naoTexto, audioFalhou }) {
@@ -575,21 +582,23 @@ function criarFluxo({
     s.etapa = 'tec_menu';
     delete s.tecOcorrencia;
     const numero = await Promise.resolve(numeroDoChat(chatId)).catch(() => '');
-    const conteudo = `${descricao.slice(0, 1500)}\n\n(Aberta pelo técnico via WhatsApp${numero ? ` - ${fone(numero)}` : ''})`;
+    const tec = (await tecnicoDe(chatId)) || {};
+    const quem = tec.nome ? `técnico ${tec.nome}` : 'técnico';
+    const conteudo = `${descricao.slice(0, 1500)}\n\n(Aberta pelo ${quem} via WhatsApp${numero ? ` - ${fone(numero)}` : ''})`;
     let r;
     try {
-      r = await sgp.criarChamado(oc.contrato, conteudo, { contatoNome: 'Técnico (WhatsApp)', contatoTelefone: numero });
+      r = await sgp.criarChamado(oc.contrato, conteudo, { contatoNome: tec.nome ? `${tec.nome} (técnico)` : 'Técnico (WhatsApp)', contatoTelefone: numero });
     } catch (e) {
       r = { ok: false, mensagem: e.message };
     }
     if (r.ok) {
-      registrar(`[técnico] ocorrência aberta no contrato ${oc.contrato}, protocolo ${r.protocolo || '-'}`);
+      registrar(`[técnico] ${tec.nome || ''} abriu ocorrência no contrato ${oc.contrato}, protocolo ${r.protocolo || '-'}`);
       await enviar(chatId, `Ocorrência aberta no SGP! ✅\n📋 Contrato ${oc.contrato}${r.protocolo ? `\n🔖 Protocolo: *${r.protocolo}*` : ''}`);
       return menuTecnico(chatId, 'Precisa de mais alguma coisa? 👇');
     }
     // Não deu para abrir no SGP: avisa a equipe com o resumo para abrirem manualmente
     registrar(`[técnico] não consegui abrir ocorrência no SGP (contrato ${oc.contrato}): ${r.mensagem || 'sem detalhe'}`);
-    const resumo = ['🛠️ *Ocorrência do técnico (abrir no SGP)*', `Contrato: ${oc.contrato}${oc.nome ? ` - ${oc.nome}` : ''}`, `Descrição: ${descricao.slice(0, 1000)}`, `Técnico: ${numero ? fone(numero) : chatId}`].join('\n');
+    const resumo = ['🛠️ *Ocorrência do técnico (abrir no SGP)*', `Contrato: ${oc.contrato}${oc.nome ? ` - ${oc.nome}` : ''}`, `Descrição: ${descricao.slice(0, 1000)}`, `Técnico: ${[tec.nome, numero ? fone(numero) : ''].filter(Boolean).join(' - ') || chatId}`].join('\n');
     await aoOcorrencia(chatId, resumo, 'tecnico').catch((e) => log(`[erro ao avisar equipe] ${e.message}`));
     await enviar(chatId, `Não consegui abrir a ocorrência direto no SGP agora${r.mensagem ? ` (_${r.mensagem}_)` : ''}. 😕\nDeixei o resumo registrado aqui para a equipe abrir manualmente:\n\n${resumo}`);
     return menuTecnico(chatId, 'Precisa de mais alguma coisa? 👇');
