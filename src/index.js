@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Talles Oliveira (github.com/talles1x)
 // Licença MIT: pode usar e modificar, mantendo este aviso de autoria. Veja o arquivo LICENSE.
 // Chatbot Telecom - conexão com o WhatsApp por QR code (whatsapp-web.js)
+// Correções na biblioteca do WhatsApp: precisam rodar antes de carregá-la
+require('./correcoes').aplicar((m) => require('./log').registrar(m));
 const path = require('path');
 const qrcodeTerminal = require('qrcode-terminal');
 const QRCode = require('qrcode');
