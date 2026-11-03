@@ -43,7 +43,16 @@ async function post(caminho, dados) {
 // ---------- Consultar cliente ----------
 async function consultarCliente(cpfcnpj) {
   if (cfg.sgp.mock) return mock.consultarCliente(cpfcnpj);
-  const r = await post('/api/ura/consultacliente/', { cpfcnpj });
+  return lerContratos(await post('/api/ura/consultacliente/', { cpfcnpj }));
+}
+
+// Mesmo cadastro, buscando pelo número do contrato (usado pelos técnicos)
+async function consultarContrato(contrato) {
+  if (cfg.sgp.mock) return mock.consultarCliente('22').filter((c) => String(c.id) === String(contrato));
+  return lerContratos(await post('/api/ura/consultacliente/', { contrato: Number(contrato) || contrato }));
+}
+
+function lerContratos(r) {
   const lista = primeiro(r, ['contratos', 'clientes', 'dados']) || [];
   return (Array.isArray(lista) ? lista : [lista]).map((c) => ({
     id: primeiro(c, ['contratoId', 'contrato', 'id', 'contrato_id']),
@@ -203,6 +212,22 @@ async function titulosPagos(dataISO) {
   }));
 }
 
+// ---------- Abrir chamado (ocorrência + ordem de serviço) ----------
+// Retorna { ok, protocolo, mensagem }
+async function criarChamado(contrato, conteudo, { contatoNome, contatoTelefone } = {}) {
+  if (cfg.sgp.mock) return { ok: true, protocolo: '2026110300001', mensagem: '' };
+  const dados = { contrato: Number(contrato) || contrato, conteudo, conteudolimpo: 1 };
+  if (contatoNome) dados.contato_nome = contatoNome;
+  if (contatoTelefone) dados.contato_telefone = contatoTelefone;
+  const r = await post('/api/ura/chamado/', dados);
+  const status = primeiro(r, ['status', 'sucesso', 'success']);
+  return {
+    ok: status === 1 || status === '1' || status === true,
+    protocolo: primeiro(r, ['protocolo', 'protocolo_id', 'ocorrencia']),
+    mensagem: primeiro(r, ['msg', 'mensagem', 'message']) || '',
+  };
+}
+
 // ---------- Promessa de pagamento ----------
 async function liberarPromessa(contrato) {
   if (cfg.sgp.mock) return mock.liberarPromessa(contrato);
@@ -282,4 +307,4 @@ const mock = {
   },
 };
 
-module.exports = { consultarCliente, titulosAbertos, titulosPagos, liberarPromessa, verificarAcesso };
+module.exports = { consultarCliente, consultarContrato, titulosAbertos, titulosPagos, criarChamado, liberarPromessa, verificarAcesso };

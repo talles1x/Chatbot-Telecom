@@ -37,6 +37,8 @@ module.exports = {
   // Números da equipe (ex.: atendente de um ponto de recebimento): recebem o menu da equipe
   // (fechar o caixa, avisar pré-cadastro, falar com atendente) em vez do menu de cliente
   atendentesNumeros: lista(process.env.ATENDENTE_NUMEROS),
+  // Números dos técnicos: menu próprio (consultar cliente, ver se está online, criar ocorrência, atendente)
+  tecnicosNumeros: lista(process.env.TECNICO_NUMEROS),
   caixa: {
     // Usuários do SGP cujas baixas entram no fechamento (vazio = todos os pagamentos do dia)
     usuarios: (process.env.CAIXA_USUARIOS_SGP || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
