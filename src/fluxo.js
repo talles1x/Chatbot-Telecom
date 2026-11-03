@@ -444,7 +444,7 @@ function criarFluxo({
     }
     return perguntar(chatId, pergunta, OP.tecnico);
   };
-  const PEDIR_CLIENTE = 'Me manda o *número do contrato* ou o *CPF/CNPJ* do cliente.\n\n_Para voltar ao menu, digite *0*._';
+  const PEDIR_CLIENTE = 'Me manda o *ID do SGP* do cliente (ou o CPF/CNPJ).\n\n_Para voltar ao menu, digite *0*._';
 
   async function receberTecnico(chatId, s, texto, { naoTexto, audioFalhou }) {
     const t = u.normalizar(texto);
@@ -482,7 +482,7 @@ function criarFluxo({
     return menuTecnico(chatId, 'Não entendi 😅 Escolha uma das opções 👇');
   }
 
-  // CPF/CNPJ ou número do contrato -> lista de contratos (null = entrada inválida)
+  // ID do SGP (número do contrato) ou CPF/CNPJ -> lista de contratos (null = entrada inválida)
   async function buscarContratos(texto) {
     const d = u.soDigitos(texto);
     if ((d.length === 11 && u.cpfValido(d)) || (d.length === 14 && u.cnpjValido(d))) return sgp.consultarCliente(d);
@@ -505,7 +505,7 @@ function criarFluxo({
       return null;
     }
     if (!lista.length) {
-      await enviar(chatId, `Não encontrei nenhum contrato com esse número/CPF. 🤔 ${PEDIR_CLIENTE}`);
+      await enviar(chatId, `Não encontrei nenhum cliente com esse ID/CPF. 🤔 ${PEDIR_CLIENTE}`);
       return null;
     }
     return lista;
@@ -520,7 +520,7 @@ function criarFluxo({
   // Dados completos para o técnico (é da equipe: vê endereço com número, referência e telefones)
   function fichaTecnico(c, online) {
     return [
-      `📋 *Contrato ${c.id}*${c.status ? ` (${c.status})` : ''}`,
+      `📋 *ID ${c.id}*${c.status ? ` (${c.status})` : ''}`,
       c.nome ? `👤 ${nomeBonito(c.nome)}` : null,
       c.endereco ? `📍 ${c.endereco}` : null,
       c.referencia ? `🧭 Ref: ${c.referencia}` : null,
@@ -539,8 +539,8 @@ function criarFluxo({
     const mostrar = ordenarContratos(lista).slice(0, 5);
     const status = await Promise.all(mostrar.map((c) => online(c.id)));
     await enviar(chatId, mostrar.map((c, i) => fichaTecnico(c, status[i])).join('\n\n'));
-    if (lista.length > mostrar.length) await enviar(chatId, `Esse CPF tem ${lista.length} contratos; mostrei ${mostrar.length}. Para ver outro, mande o número do contrato.`);
-    return enviar(chatId, `Pode mandar outro contrato/CPF para consultar, ou *0* para o menu.`);
+    if (lista.length > mostrar.length) await enviar(chatId, `Esse CPF tem ${lista.length} contratos; mostrei ${mostrar.length}. Para ver outro, mande o ID do SGP dele.`);
+    return enviar(chatId, `Pode mandar outro ID/CPF para consultar, ou *0* para o menu.`);
   }
 
   async function tecOnline(chatId, s, texto) {
@@ -549,12 +549,12 @@ function criarFluxo({
     const mostrar = ordenarContratos(lista).slice(0, 10);
     const status = await Promise.all(mostrar.map((c) => online(c.id)));
     registrar(`[técnico] verificou conexão de ${mostrar.length} contrato(s)`);
-    await enviar(chatId, mostrar.map((c, i) => `${textoOnline(status[i])} - Contrato ${c.id}${c.nome ? ` - ${nomeLGPD(c.nome)}` : ''}${c.endereco ? `\n   ${enderecoLGPD(c.endereco)}` : ''}`).join('\n'));
-    return enviar(chatId, 'Pode mandar outro contrato/CPF para verificar, ou *0* para o menu.');
+    await enviar(chatId, mostrar.map((c, i) => `${textoOnline(status[i])} - ID ${c.id}${c.nome ? ` - ${nomeLGPD(c.nome)}` : ''}${c.endereco ? `\n   ${enderecoLGPD(c.endereco)}` : ''}`).join('\n'));
+    return enviar(chatId, 'Pode mandar outro ID/CPF para verificar, ou *0* para o menu.');
   }
 
   async function tecEscolherContratoOcorrencia(chatId, s, texto) {
-    // Já listou os contratos de um CPF: aceita a posição (1, 2...) ou o número do contrato
+    // Já listou os contratos de um CPF: aceita a posição (1, 2...) ou o ID do SGP
     if (s.tecContratos) {
       const t = u.soDigitos(texto);
       const c = s.tecContratos[Number(t) - 1] && t.length <= 2 ? s.tecContratos[Number(t) - 1] : s.tecContratos.find((x) => String(x.id) === t);
@@ -566,14 +566,14 @@ function criarFluxo({
     if (lista.length === 1) return pedirDescricaoOcorrencia(chatId, s, lista[0]);
     s.tecContratos = ordenarContratos(lista).slice(0, 10).map((c) => ({ id: c.id, nome: c.nome, endereco: c.endereco, status: c.status }));
     return enviar(chatId, 'Esse CPF tem mais de um contrato. Qual deles?\n\n' +
-      s.tecContratos.map((c, i) => `*${i + 1}* - Contrato ${c.id}${c.endereco ? ` · ${enderecoLGPD(c.endereco)}` : ''}${c.status && !/^ativo$/i.test(c.status) ? ` · ${c.status}` : ''}`).join('\n'));
+      s.tecContratos.map((c, i) => `*${i + 1}* - ID ${c.id}${c.endereco ? ` · ${enderecoLGPD(c.endereco)}` : ''}${c.status && !/^ativo$/i.test(c.status) ? ` · ${c.status}` : ''}`).join('\n'));
   }
 
   function pedirDescricaoOcorrencia(chatId, s, c) {
     s.tecOcorrencia = { contrato: c.id, nome: c.nome || '' };
     delete s.tecContratos;
     s.etapa = 'tec_oc_desc';
-    return enviar(chatId, `Contrato *${c.id}*${c.nome ? ` - ${nomeBonito(c.nome)}` : ''} ✅\nAgora me descreve a ocorrência (o problema ou o serviço feito), numa mensagem só.`);
+    return enviar(chatId, `ID *${c.id}*${c.nome ? ` - ${nomeBonito(c.nome)}` : ''} ✅\nAgora me descreve a ocorrência (o problema ou o serviço feito), numa mensagem só.`);
   }
 
   async function criarOcorrenciaTecnico(chatId, s, descricao) {
@@ -593,12 +593,12 @@ function criarFluxo({
     }
     if (r.ok) {
       registrar(`[técnico] ${tec.nome || ''} abriu ocorrência no contrato ${oc.contrato}, protocolo ${r.protocolo || '-'}`);
-      await enviar(chatId, `Ocorrência aberta no SGP! ✅\n📋 Contrato ${oc.contrato}${r.protocolo ? `\n🔖 Protocolo: *${r.protocolo}*` : ''}`);
+      await enviar(chatId, `Ocorrência aberta no SGP! ✅\n📋 ID ${oc.contrato}${r.protocolo ? `\n🔖 Protocolo: *${r.protocolo}*` : ''}`);
       return menuTecnico(chatId, 'Precisa de mais alguma coisa? 👇');
     }
     // Não deu para abrir no SGP: avisa a equipe com o resumo para abrirem manualmente
     registrar(`[técnico] não consegui abrir ocorrência no SGP (contrato ${oc.contrato}): ${r.mensagem || 'sem detalhe'}`);
-    const resumo = ['🛠️ *Ocorrência do técnico (abrir no SGP)*', `Contrato: ${oc.contrato}${oc.nome ? ` - ${oc.nome}` : ''}`, `Descrição: ${descricao.slice(0, 1000)}`, `Técnico: ${[tec.nome, numero ? fone(numero) : ''].filter(Boolean).join(' - ') || chatId}`].join('\n');
+    const resumo = ['🛠️ *Ocorrência do técnico (abrir no SGP)*', `ID SGP: ${oc.contrato}${oc.nome ? ` - ${oc.nome}` : ''}`, `Descrição: ${descricao.slice(0, 1000)}`, `Técnico: ${[tec.nome, numero ? fone(numero) : ''].filter(Boolean).join(' - ') || chatId}`].join('\n');
     await aoOcorrencia(chatId, resumo, 'tecnico').catch((e) => log(`[erro ao avisar equipe] ${e.message}`));
     await enviar(chatId, `Não consegui abrir a ocorrência direto no SGP agora${r.mensagem ? ` (_${r.mensagem}_)` : ''}. 😕\nDeixei o resumo registrado aqui para a equipe abrir manualmente:\n\n${resumo}`);
     return menuTecnico(chatId, 'Precisa de mais alguma coisa? 👇');

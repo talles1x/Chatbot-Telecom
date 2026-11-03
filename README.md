@@ -83,9 +83,9 @@ No simulador, teste com `ATENDENTE_NUMEROS` e `SIMULADOR_NUMERO` iguais e `npm r
 
 Os números em `TECNICO_NUMEROS` recebem outro menu, separado do da equipe:
 
-- **Consultar cliente**: pelo número do contrato ou CPF/CNPJ, mostra nome completo, endereço com número, ponto de referência, plano, telefones e se a conexão está online (até 5 contratos por consulta).
+- **Consultar cliente**: pelo ID do SGP (número do contrato) ou CPF/CNPJ, mostra nome completo, endereço com número, ponto de referência, plano, telefones e se a conexão está online (até 5 contratos por consulta).
 - **Ver se está online**: mostra 🟢 online / 🔴 offline de cada contrato do cliente (até 10).
-- **Criar ocorrência**: pede o contrato (se o CPF tiver vários, o técnico escolhe) e a descrição, e abre o chamado direto no SGP, respondendo com o protocolo. Se o SGP recusar (por exemplo, token sem permissão para abrir chamado), o resumo fica na conversa e vai para o `NUMERO_EQUIPE`, para abrirem manualmente.
+- **Criar ocorrência**: pede o ID do SGP ou o CPF (se o CPF tiver vários contratos, o técnico escolhe) e a descrição, e abre o chamado direto no SGP, respondendo com o protocolo. Se o SGP recusar (por exemplo, token sem permissão para abrir chamado), o resumo fica na conversa e vai para o `NUMERO_EQUIPE`, para abrirem manualmente.
 - **Falar com atendente**: passa a conversa para uma pessoa.
 
 Em qualquer passo, *0* volta ao menu. Os técnicos não passam pela verificação de titular nem pelo limite de CPFs por dia, porque são da equipe.
