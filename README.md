@@ -2,7 +2,7 @@
 
 > Desenvolvido por **Talles Oliveira** ([github.com/talles1x](https://github.com/talles1x)). Licença MIT, veja [Autor e licença](#autor-e-licença).
 
-Bot de autoatendimento para provedor de internet, conectado ao WhatsApp por QR code e integrado à API URA do SGP. O menu tem 4 opções: **Financeiro** (2ª via de boleto e liberação de confiança), **Suporte técnico** (triagem do problema e resumo da ocorrência), **Quero contratar** e **Falar com atendente**. O cliente responde digitando o número da opção, *voltar* para o passo anterior ou *0* para o início. O menu sai em texto numerado, que funciona em qualquer celular; a enquete clicável do WhatsApp pode ser ligada com `USAR_ENQUETE=true`, mas nesta versão do WhatsApp Web o toque na enquete nem sempre chega ao bot.
+Bot de autoatendimento para provedor de internet, conectado ao WhatsApp por QR code e integrado à API URA do SGP. O menu tem 4 opções: **Financeiro** (2ª via de boleto e liberação de confiança), **Suporte técnico** (triagem do problema e resumo da ocorrência), **Quero contratar** e **Falar com atendente**.
 
 **Escolha do contrato**: quando o CPF tem mais de um contrato, a lista mostra rua, bairro, cidade e ponto de referência de cada um, com os ativos primeiro e a situação quando não é "Ativo". Cabem 10 na lista; com mais que isso, os cancelados saem da lista e o cliente pode digitar o **número do contrato** (ex.: 4684) ou parte do **endereço/referência** ("rua das flores", "perto da igreja").
 
