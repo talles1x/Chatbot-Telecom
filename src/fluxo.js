@@ -29,8 +29,8 @@ const MSG = {
   pedirVerificacao:
     'Pra sua segurança 🔒, me manda os *4 últimos números do telefone* que está no seu cadastro com a gente.\n\n' +
     '_Ex.: se o número é (83) 99999-1234, mande *1234*. Se não souber, digite *pular*._',
-  semBoleto: (c) => `Não encontrei boletos em aberto no contrato *${c.id}*. Está tudo em dia! 🎉`,
-  erroSistema: 'Tive um problema para consultar o sistema agora. 😕 Vou te passar para um atendente.',
+  semBoleto: () => 'Você não tem nenhum boleto em aberto. Está tudo em dia! 🎉',
+  erroSistema: 'Não consegui consultar seu cadastro agora. 😕 Vou te passar para um atendente.',
   atendenteDentro: 'Certo! Já avisei nossa equipe e em instantes um atendente vai falar com você por aqui. 😊',
   // Foto ou documento fora do suporte (geralmente comprovante de pagamento)
   comprovanteDentro: 'Recebi seu comprovante 📄✅ Já passei para a equipe conferir e dar baixa. Em instantes alguém confirma por aqui. 😊',
@@ -50,15 +50,15 @@ const QUER_FINALIZAR = /^(f|finalizar|finaliza|finalizado|encerrar|encerra|encer
 
 const OP = {
   menu: [
-    { valor: '1', texto: '💰 Financeiro (boleto e liberação)' },
-    { valor: '2', texto: '🛠️ Suporte técnico (internet)' },
-    { valor: '3', texto: '🚀 Quero contratar' },
+    { valor: '1', texto: '💰 Boleto e liberação da internet' },
+    { valor: '2', texto: '🛠️ Problema na internet' },
+    { valor: '3', texto: '🚀 Quero ser cliente' },
     { valor: '4', texto: '👤 Falar com um atendente' },
     FINALIZAR,
   ],
   confirmarDoc: [
-    { valor: 's', texto: '✅ Sim, sou eu', chave: /^(sim|isso|sou eu|e eu|pode|pode sim|pode usar|esse mesmo|esse|mesmo|correto|exato|confirmo|ok)\b/ },
-    { valor: 'o', texto: '🔄 Usar outro CPF/CNPJ', chave: /\b(outro|outra|diferente|trocar|mudar|nao sou|nao e)\b|^nao\b/, prioridade: -1 },
+    { valor: 's', texto: '✅ Sim, é esse', chave: /^(sim|isso|sou eu|e eu|pode|pode sim|pode usar|esse mesmo|esse|mesmo|correto|exato|confirmo|ok)\b/ },
+    { valor: 'o', texto: '🔄 Não, usar outro CPF', chave: /\b(outro|outra|diferente|trocar|mudar|nao sou|nao e)\b|^nao\b/, prioridade: -1 },
     { valor: 'v', texto: '⬅️ Voltar' },
   ],
   uso: [
@@ -78,35 +78,35 @@ const OP = {
   ],
   luz: [
     { valor: 's', texto: '🔴 Sim, tem luz vermelha', chave: /^(sim|tem|tem sim|esta vermelh|vermelh)|\bvermelh|\blos\b.*\b(acesa|aceso|piscando)/ },
-    { valor: 'n', texto: '🟢 Não, nenhuma vermelha', chave: /^(nao|nenhuma|tudo verde|verde|normal|tudo normal|esta normal|nao tem)\b|^(?!.*vermelh).*\bverd(e|es|inho|inha|inhos|inhas)\b|\b(nenhuma|nao tem( nenhuma)?|sem) (luz )?vermelh/, prioridade: -0.5 },
+    { valor: 'n', texto: '🟢 Não, está tudo verde', chave: /^(nao|nenhuma|tudo verde|verde|normal|tudo normal|esta normal|nao tem)\b|^(?!.*vermelh).*\bverd(e|es|inho|inha|inhos|inhas)\b|\b(nenhuma|nao tem( nenhuma)?|sem) (luz )?vermelh/, prioridade: -0.5 },
     { valor: 'd', texto: '⚫ O aparelho está desligado', chave: /\b(deslig|apagad|nao liga|nao acende|sem luz(?! vermelh)|nenhuma luz(?! vermelh)|luz nenhuma|tudo apagado|sem energia|faltou energia)/, prioridade: -1 },
     { valor: 'x', texto: '🤷 Não sei ver', chave: /\b(nao sei|sei la|nao entendi|como (eu )?(vejo|sei|olho)|onde (fica|vejo)|nao consigo ver|nao achei)/, prioridade: -2 },
   ],
   reiniciou: [
-    { valor: 's', texto: '✅ Já reiniciei e não resolveu', chave: /^(sim|ja|reiniciei|desliguei|fiz|varias vezes)\b|\bja (reiniciei|desliguei|fiz|tentei|tirei)\b/, prioridade: -1 },
-    { valor: 'n', texto: '🔌 Ainda não reiniciei', chave: /^(nao|ainda nao|nunca)\b|\bcomo (faz|faco|reinicia)\b|\bvou (fazer|reiniciar|tentar|testar|desligar)\b/ },
+    { valor: 's', texto: '✅ Já fiz e não resolveu', chave: /^(sim|ja|reiniciei|desliguei|fiz|varias vezes)\b|\bja (reiniciei|desliguei|fiz|tentei|tirei)\b/, prioridade: -1 },
+    { valor: 'n', texto: '🔌 Ainda não fiz', chave: /^(nao|ainda nao|nunca)\b|\bcomo (faz|faco|reinicia)\b|\bvou (fazer|reiniciar|tentar|testar|desligar)\b/ },
   ],
   resolveu: [
-    { valor: 's', texto: '✅ Voltou a funcionar', chave: /^(sim|voltou|funcionou|resolveu|resolvido|deu certo|esta funcionando|funcionando|normalizou|ja voltou|ja esta|agora (sim|foi|voltou|funcionou|esta))\b/ },
-    { valor: 'n', texto: '❌ Continua com problema', chave: /^(nao|ainda nao|continua|nada|nem|mesma coisa|piorou)\b|\bnao (voltou|funcionou|resolveu|deu certo)\b|\bcontinua\b/, prioridade: -1 },
+    { valor: 's', texto: '✅ Voltou', chave: /^(sim|voltou|funcionou|resolveu|resolvido|deu certo|esta funcionando|funcionando|normalizou|ja voltou|ja esta|agora (sim|foi|voltou|funcionou|esta))\b/ },
+    { valor: 'n', texto: '❌ Não voltou', chave: /^(nao|ainda nao|continua|nada|nem|mesma coisa|piorou)\b|\bnao (voltou|funcionou|resolveu|deu certo)\b|\bcontinua\b/, prioridade: -1 },
   ],
   bloqueado: [
-    { valor: 'p', texto: '🔓 Liberação de confiança', chave: /\b(liber|confianca|promessa|desbloq)/ },
+    { valor: 'p', texto: '🔓 Liberar minha internet (liberação de confiança)', chave: /\b(liber|confianca|promessa|desbloq)/ },
     { valor: 'b', texto: '📄 Receber o boleto', chave: /\b(boleto|fatura|pagar|pix|segunda via)\b/ },
-    { valor: 'c', texto: '🛠️ Continuar com o suporte', chave: /\b(suporte|continuar|tecnico|nao e isso|outro problema)\b/ },
+    { valor: 'c', texto: '🛠️ Não é isso, continuar o suporte', chave: /\b(suporte|continuar|tecnico|nao e isso|outro problema)\b/ },
     FINALIZAR,
   ],
   acordo: [
-    { valor: 'a', texto: '🤝 Quero negociar um acordo', chave: /\b(sim|quero|acordo|negoci|parcel|proposta|desconto|voltar|aceito|pode ser|bora)\b/ },
+    { valor: 'a', texto: '🤝 Quero negociar', chave: /\b(sim|quero|acordo|negoci|parcel|proposta|desconto|voltar|aceito|pode ser|bora)\b/ },
     { valor: 'b', texto: '📄 Só quero ver meus boletos', chave: /\b(boletos?|faturas?|segunda via|ver|pix|pagar tudo)\b/, prioridade: -0.5 },
     { valor: 'n', texto: '⏭️ Agora não', chave: /^(nao|agora nao|depois|outra hora|nao quero|mais tarde)\b/, prioridade: -1 },
   ],
   financeiro: [
-    { valor: '1', texto: '📄 2ª via do boleto', chave: /\b(boleto|fatura|segunda via|pix|chave|qr ?code|copia e cola|codigo|linha digitavel|pagar)\b/ },
-    { valor: '2', texto: '🔓 Liberação de confiança', chave: /\b(liber|confianca|promessa|desbloq)/ },
-    { valor: 'v', texto: '⬅️ Voltar (trocar CPF/contrato)' },
+    { valor: '1', texto: '📄 Receber o boleto (2ª via)', chave: /\b(boleto|fatura|segunda via|pix|chave|qr ?code|copia e cola|codigo|linha digitavel|pagar)\b/ },
+    { valor: '2', texto: '🔓 Liberar minha internet (liberação de confiança)', chave: /\b(liber|confianca|promessa|desbloq)/ },
+    { valor: 'v', texto: '⬅️ Voltar' },
     { valor: '9', texto: '👤 Falar com um atendente' },
-    { valor: '0', texto: '↩️ Voltar ao início' },
+    { valor: '0', texto: '↩️ Menu inicial' },
     FINALIZAR,
   ],
   // Menu dos técnicos (números em TECNICO_NUMEROS)
@@ -195,10 +195,10 @@ function criarFluxo({
   // ---- lembrete quando o cliente some no meio do fluxo ----
   const lembretes = new Map(); // chatId -> timer
   const TEXTO_LEMBRETE = {
-    doc: 'É só me mandar o *CPF ou CNPJ* do titular que eu continuo. 😊',
-    contrato: 'É só tocar no contrato desejado que eu continuo. 😊',
+    doc: 'É só me mandar o *CPF de quem está no nome do boleto* que eu continuo. 😊',
+    contrato: 'É só responder com o número do contrato que eu continuo. 😊',
     verificar: 'É só me mandar os *4 últimos números do telefone* do seu cadastro (ou digite *pular*) que eu continuo. 😊',
-    confirmar_doc: 'É só tocar em uma das opções acima que eu continuo. 😊',
+    confirmar_doc: 'É só responder com o número de uma das opções acima que eu continuo. 😊',
     suporte_desc: 'É só me contar o que está acontecendo (pode ser áudio) que eu registro seu chamado. 😊',
     venda_local: 'É só me dizer sua cidade e bairro que eu continuo seu cadastro. 😊',
     venda_nome: 'É só me dizer seu nome que eu continuo seu cadastro. 😊',
@@ -219,7 +219,7 @@ function criarFluxo({
       try {
         if (!atual.lembrado) {
           atual.lembrado = true;
-          await enviar(chatId, `Ainda está por aí? ${TEXTO_LEMBRETE[etapa] || 'É só tocar em uma das opções acima que eu continuo. 😊'}`);
+          await enviar(chatId, `Ainda está por aí? ${TEXTO_LEMBRETE[etapa] || 'É só responder com o número de uma das opções acima que eu continuo. 😊'}`);
           agendarLembrete(chatId);
         } else {
           sessoes.delete(chatId);
@@ -361,6 +361,8 @@ function criarFluxo({
       // Se a primeira mensagem já diz o que quer, pula o menu
       const intencao = ent.querAtendente(texto) ? 'atendente' : ent.detectarIntencao(texto);
       if (intencao) return comecar(chatId, s, intencao, texto);
+      // Já começou com o número de uma opção do menu (cliente que já conhece o menu)
+      if (/^[1-4]$/.test(t)) return etapaMenu(chatId, s, t);
       await menu(chatId, doc ? 'Recebi seu CPF/CNPJ ✅ Agora me diz: o que você precisa? 👇' : undefined);
       return;
     }
@@ -849,7 +851,7 @@ function criarFluxo({
     const lembrado = estado.cliente(chatId);
     if (lembrado && lembrado.doc) {
       s.etapa = 'confirmar_doc';
-      return perguntar(chatId, `Posso usar o mesmo cadastro de antes? (CPF/CNPJ ${mascarar(lembrado.doc)})`, OP.confirmarDoc);
+      return perguntar(chatId, `É o mesmo CPF de antes (${mascarar(lembrado.doc)})? 👇`, OP.confirmarDoc);
     }
     s.etapa = 'doc';
     return enviar(chatId, MSG.pedirDoc(intencao === 'suporte' ? 'Vamos resolver isso! 🛠️' : 'Certo!'));
@@ -1035,7 +1037,7 @@ function criarFluxo({
     }
 
     s.etapa = 'contrato';
-    return perguntarContrato(chatId, s, `Encontrei ${todos.length} contratos. Qual deles? 👇`);
+    return perguntarContrato(chatId, s, `Encontrei ${todos.length} contratos no seu nome. Qual deles? 👇`);
   }
 
   // Aceita a opção da lista, o número do contrato (ex.: 4684) ou parte do endereço/referência
@@ -1090,7 +1092,9 @@ function criarFluxo({
       s.etapa = 'suporte_bloqueado';
       return perguntar(
         chatId,
-        `Vi aqui que seu contrato está *${s.contrato.status}*, o que normalmente é por fatura em aberto e pode ser o motivo da falta de internet. O que prefere? 👇`,
+        /reduz/i.test(String(s.contrato.status))
+          ? 'Vi aqui que sua internet está com a *velocidade reduzida* por boleto em aberto, e esse pode ser o motivo. O que você prefere? 👇'
+          : 'Vi aqui que sua internet está *bloqueada* por boleto em aberto, e esse pode ser o motivo. O que você prefere? 👇',
         OP.bloqueado
       );
     }
@@ -1120,8 +1124,8 @@ function criarFluxo({
     s.etapa = 'acordo';
     await enviar(
       chatId,
-      `Vi aqui que o contrato *${s.contrato.id}* tem *${titulos.length} ${titulos.length > 1 ? 'faturas' : 'fatura'} em aberto* desde *${u.dataBR(titulos[0].vencimento)}*.\n\n` +
-        `Sentimos sua falta! 💙 Temos *condições especiais de acordo* para você regularizar e voltar a usar a internet da ${cfg.empresa}.`
+      `Vi aqui que você tem *${titulos.length} ${titulos.length > 1 ? 'boletos' : 'boleto'} em aberto* desde *${u.dataBR(titulos[0].vencimento)}*.\n\n` +
+        `Sentimos sua falta! 💙 Temos *condições especiais* para você colocar tudo em dia e voltar a usar a internet da ${cfg.empresa}.`
     );
     await perguntar(chatId, 'Quer que nossa equipe te mande uma proposta de acordo? 👇', OP.acordo);
     return true;
@@ -1156,7 +1160,7 @@ function criarFluxo({
       return segundaVia(chatId, s);
     }
     if (t === 'n') {
-      await enviar(chatId, 'Tudo bem! Quando quiser negociar, é só me chamar e escolher *Financeiro*. 😉');
+      await enviar(chatId, 'Tudo bem! Quando quiser negociar, é só me chamar e escolher *Boleto e liberação da internet*. 😉');
       return seguirFluxo(chatId, s);
     }
     return perguntar(chatId, 'Responda com o número da opção 👇', OP.acordo);
@@ -1185,21 +1189,21 @@ function criarFluxo({
       // Conexão chega até a casa: problema provavelmente no Wi-Fi ou no aparelho
       await enviar(
         chatId,
-        'Verifiquei aqui e sua conexão está *chegando normalmente* até o seu aparelho. ✅ ' +
-          'Então o problema deve estar no Wi-Fi ou no dispositivo.\n\n' +
-          'Teste se a internet funciona em *outro celular* e confira se o aparelho está conectado na rede Wi-Fi certa.'
+        'Verifiquei aqui e a internet está *chegando normalmente* na sua casa. ✅ ' +
+          'Então o problema deve ser no Wi-Fi ou no aparelho que você está usando.\n\n' +
+          'Testa a internet em *outro celular* e confere se ele está conectado no Wi-Fi certo.'
       );
       s.ocorrencia.orientacao = 'Conexão online: orientado a testar Wi-Fi/outro aparelho';
       s.etapa = 'suporte_resolveu';
-      return perguntar(chatId, 'Fez o teste? A internet voltou a funcionar?', OP.resolveu);
+      return perguntar(chatId, 'Fez o teste? A internet voltou?', OP.resolveu);
     }
     if (t === '1') {
       s.etapa = 'suporte_luz';
-      return perguntar(chatId, 'Olhe o aparelho da fibra (ONU/roteador). Alguma luz está *vermelha* ou piscando em vermelho (geralmente escrita *LOS*)?', OP.luz);
+      return perguntar(chatId, 'Dá uma olhada no aparelho da internet (o que tem o fio fino da fibra). Tem alguma luz *vermelha*, acesa ou piscando?', OP.luz);
     }
     if (t === '2' || t === '3') {
       s.etapa = 'suporte_reiniciou';
-      return perguntar(chatId, 'Você já tentou reiniciar o roteador (tirar da tomada por 30 segundos e ligar de novo)?', OP.reiniciou);
+      return perguntar(chatId, 'Você já tirou o aparelho da internet da tomada, esperou *30 segundos* e ligou de novo?', OP.reiniciou);
     }
     return pedirDescricao(chatId, s);
   }
@@ -1210,14 +1214,14 @@ function criarFluxo({
     s.ocorrencia.luz = op.texto.replace(/^\S+\s/, '');
     if (t === 's') {
       // Luz vermelha = problema na fibra, reiniciar não resolve: direto para o técnico
-      await enviar(chatId, 'Obrigado! Luz vermelha costuma indicar problema no cabo de fibra, então já vou encaminhar para nossa equipe técnica.');
+      await enviar(chatId, 'Obrigado! Luz vermelha geralmente é problema no cabo da fibra, então vou passar para nossa equipe técnica.');
       return pedirDescricao(chatId, s);
     }
     if (t === 'd') {
-      await enviar(chatId, 'Confira se o aparelho está bem encaixado na tomada (ou tente outra tomada) e se o botão de ligar está acionado.');
+      await enviar(chatId, 'Confere se o aparelho está bem encaixado na tomada (ou testa outra tomada) e se o botão de ligar está apertado.');
     }
     s.etapa = 'suporte_reiniciou';
-    return perguntar(chatId, 'Você já tentou reiniciar o roteador (tirar da tomada por 30 segundos e ligar de novo)?', OP.reiniciou);
+    return perguntar(chatId, 'Você já tirou o aparelho da internet da tomada, esperou *30 segundos* e ligou de novo?', OP.reiniciou);
   }
 
   async function etapaSuporteReiniciou(chatId, s, t) {
@@ -1228,8 +1232,8 @@ function criarFluxo({
     if (t === 'n') {
       s.ocorrencia.reiniciou = 'Pedido ao cliente pelo bot';
       s.etapa = 'suporte_resolveu';
-      await enviar(chatId, 'Faz assim: tire o aparelho da fibra e o roteador da tomada, espere *30 segundos* e ligue de novo. Aguarde uns *3 minutos* para tudo reconectar. ⏳');
-      return perguntar(chatId, 'Depois de religar, a internet voltou?', OP.resolveu);
+      await enviar(chatId, 'Faz assim: tira o aparelho da internet da tomada (e o roteador também, se tiver dois), espera *30 segundos* e liga de novo. Depois espera uns *3 minutos* para a internet voltar. ⏳');
+      return perguntar(chatId, 'E aí, a internet voltou?', OP.resolveu);
     }
     return perguntar(chatId, 'Toque em uma das opções 👇', OP.reiniciou);
   }
@@ -1253,7 +1257,7 @@ function criarFluxo({
     s.etapa = 'suporte_desc';
     return enviar(
       chatId,
-      'Para agilizar, me conte em poucas palavras o que está acontecendo: desde quando, se é em todos os aparelhos, se é no Wi-Fi ou no cabo... ' +
+      'Me conta rapidinho o que está acontecendo, pra eu passar para o técnico: desde quando e se é em todos os aparelhos. ' +
         'Pode mandar *texto, áudio ou foto*. 📝'
     );
   }
@@ -1273,7 +1277,7 @@ function criarFluxo({
 
     await enviar(
       chatId,
-      `Prontinho! ✅ Registrei seu chamado:\n\n${linhas.filter((l) => !/^(Conexão|Orientação):/.test(l)).join('\n')}\n\n` +
+      `Prontinho! ✅ Registrei seu chamado:\n\n${linhas.filter((l) => !/^(Conexão|Orientação):/.test(l)).map((l) => l.replace('Luz vermelha (LOS):', 'Luz vermelha:').replace('Reiniciou o roteador:', 'Reiniciou o aparelho:')).join('\n')}\n\n` +
         (u.dentroDoHorario()
           ? 'Nossa equipe técnica vai dar continuidade por aqui em instantes. 😊'
           : `Estamos fora do horário (${cfg.horario.texto}), mas sua solicitação já está registrada e a equipe vai te responder assim que possível. 🙏`)
@@ -1306,7 +1310,7 @@ function criarFluxo({
         c.status && !/^ativo$/i.test(String(c.status).trim()) ? String(c.status) : null,
       ].filter(Boolean).join(' · ').slice(0, 100),
     }));
-    opcoes.push({ valor: 'v', texto: '⬅️ Voltar (digitar outro CPF)' });
+    opcoes.push({ valor: 'v', texto: '⬅️ Trocar o CPF' });
     const total = (s.contratosTodos || s.contratos).length;
     if (total > opcoes.length - 1) {
       pergunta += `\n\n_Mostrando ${opcoes.length - 1} de ${total}. Não achou o seu? Digite o *número do contrato* ou o *nome da rua*._`;
@@ -1331,23 +1335,23 @@ function criarFluxo({
     const vencidas = titulos.filter((t) => (u.diasDeAtraso(t.vencimento) ?? 0) > 0);
     const emDia = !vencidas.length;
     const lista = emDia ? titulos.slice(0, 1) : vencidas.slice(0, cfg.maxBoletos);
-    if (emDia) await enviar(chatId, 'Você está em dia! 🎉 Segue a sua próxima fatura:');
+    if (emDia) await enviar(chatId, 'Você está em dia! 🎉 Segue o seu próximo boleto:');
     for (const b of lista) {
-      let txt = `📄 *Fatura com vencimento em ${u.dataBR(b.vencimento)}*\nValor: *${u.moeda(b.valor)}*`;
+      let txt = `📄 *Boleto com vencimento em ${u.dataBR(b.vencimento)}*\nValor: *${u.moeda(b.valor)}*`;
       if (b.link) txt += `\n\nBoleto em PDF: ${b.link}`;
       await enviar(chatId, txt);
       // Linha digitável e PIX vão sozinhos para o cliente copiar fácil
       if (b.pix) {
-        await enviar(chatId, '💠 PIX copia e cola (copie a mensagem abaixo):');
+        await enviar(chatId, '💠 *PIX copia e cola* (toque e segure a próxima mensagem para copiar):');
         await enviar(chatId, String(b.pix));
       }
       if (b.linha) {
-        await enviar(chatId, '🔢 Linha digitável do boleto (copie a mensagem abaixo):');
+        await enviar(chatId, '🔢 *Código de barras* (para pagar no app do banco ou na lotérica):');
         await enviar(chatId, String(b.linha));
       }
     }
     if (!emDia && vencidas.length > lista.length) {
-      await enviar(chatId, `Você tem mais ${vencidas.length - lista.length} fatura(s) em aberto. Para ver todas, digite *9* e fale com um atendente.`);
+      await enviar(chatId, `Você tem mais ${vencidas.length - lista.length} boleto(s) em aberto. Para receber todos, digite *9* e fale com um atendente.`);
     }
     return menuFin(chatId, 'Precisa de mais alguma coisa? 👇');
   }
@@ -1355,7 +1359,7 @@ function criarFluxo({
   async function promessa(chatId, s) {
     const titulos = await sgp.titulosAbertos(s.doc, s.contrato.id);
     if (!titulos.length) {
-      await enviar(chatId, `Não há faturas em aberto no contrato *${s.contrato.id}*, então não precisa de liberação de confiança. 🎉`);
+      await enviar(chatId, 'Você não tem boleto em aberto, então sua internet não precisa de liberação. 🎉');
       return menuFin(chatId, 'Precisa de mais alguma coisa? 👇');
     }
 
@@ -1368,7 +1372,7 @@ function criarFluxo({
         s.etapa = 'acordo';
         return perguntar(
           chatId,
-          'A liberação de confiança não está disponível para faturas com mais de 2,5 meses em aberto. Nesse caso, o caminho é um *acordo*, com condições especiais. 👇',
+          'Como o boleto está em aberto há mais de 2 meses e meio, a liberação não está disponível. Mas dá para fazer um *acordo*, com condições especiais. 👇',
           OP.acordo
         );
       }
@@ -1378,20 +1382,20 @@ function criarFluxo({
       const falta = cfg.promessaMinDias - atraso;
       await enviar(
         chatId,
-        `Sua fatura mais antiga venceu em *${u.dataBR(titulos[0].vencimento)}* e ainda não chegou no período de bloqueio, ` +
-          `então a liberação de confiança ainda não está disponível (ela fica disponível a partir de ${cfg.promessaMinDias} dias de atraso` +
-          `${falta > 0 ? `, ou seja, daqui a ${falta} dia(s)` : ''}).\n\nSe quiser pagar agora, digite *1* para receber o boleto.`
+        `Seu boleto venceu em *${u.dataBR(titulos[0].vencimento)}* e sua internet ainda não foi bloqueada, então a liberação ainda não é necessária. ` +
+          `Ela fica disponível a partir de ${cfg.promessaMinDias} dias depois do vencimento${falta > 0 ? ` (daqui a ${falta} ${falta > 1 ? 'dias' : 'dia'})` : ''}.\n\n` +
+          'Se quiser pagar agora, digite *1* para receber o boleto.'
       );
       return menuFin(chatId, 'Precisa de mais alguma coisa? 👇');
     }
 
     const r = await sgp.liberarPromessa(s.contrato.id);
     if (r.ok) {
-      let txt = `✅ *Liberação de confiança feita!* Sua conexão foi liberada por ${cfg.promessaDias} ${cfg.promessaDias > 1 ? 'dias' : 'dia'}`;
+      let txt = `✅ *Pronto, sua internet foi liberada* por ${cfg.promessaDias} ${cfg.promessaDias > 1 ? 'dias' : 'dia'}`;
       txt += r.ate ? ` (até ${u.dataBR(r.ate)}).` : '.';
       if (r.protocolo) txt += `\nProtocolo: *${r.protocolo}*`;
-      txt += '\n\nSe a internet não voltar em alguns minutos, desligue o roteador da tomada por 30 segundos e ligue de novo. ' +
-        'Lembre de pagar dentro do prazo para evitar um novo bloqueio. 😉';
+      txt += '\n\nSe a internet não voltar em alguns minutos, tira o aparelho da tomada por 30 segundos e liga de novo. ' +
+        'Lembra de pagar até lá para não bloquear de novo. 😉';
       await enviar(chatId, txt);
       return menuFin(chatId, 'Precisa de mais alguma coisa? 👇');
     }
@@ -1399,7 +1403,7 @@ function criarFluxo({
     // SGP recusou (ex.: promessa já usada no mês)
     await enviar(
       chatId,
-      `Não consegui fazer a liberação de confiança${r.mensagem ? `: _${r.mensagem}_` : '.'}\n\nVou te passar para um atendente.`
+      `Não consegui liberar sua internet por aqui${r.mensagem ? ` (_${r.mensagem}_)` : ''}. Vou te passar para um atendente. 🙏`
     );
     return transferir(chatId, false);
   }
