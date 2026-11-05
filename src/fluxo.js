@@ -12,9 +12,9 @@ const { htmlFechamento } = require('./relatorio');
 
 const MSG = {
   saudacao: () => `Olá! 👋 Aqui é o assistente virtual da *${cfg.empresa}*.`,
-  pedirDoc: (inicio = 'Certo!') => `${inicio} Me envie o *CPF ou CNPJ* do titular do contrato (pode ser só os números).\n\n_Se quiser voltar, digite *voltar*._`,
-  docInvalido: 'Esse CPF/CNPJ não parece válido. Confira e envie de novo, ou digite *9* para falar com um atendente.',
-  naoEncontrado: 'Não encontrei nenhum contrato com esse CPF/CNPJ. Confira os números e envie de novo, ou digite *9* para falar com um atendente.',
+  pedirDoc: (inicio = 'Certo!') => `${inicio} Me manda o *CPF de quem está no nome do boleto* (só os números). Se for empresa, pode mandar o CNPJ.\n\n_Se quiser voltar, digite *voltar*._`,
+  docInvalido: 'Esse CPF não parece certo 🤔 Confere e manda de novo (só os números), ou digite *9* para falar com um atendente.',
+  naoEncontrado: 'Não achei nenhum cadastro com esse CPF 🤔 Confere se é o CPF de quem está no nome do boleto e manda de novo, ou digite *9* para falar com um atendente.',
   // completo = identidade confirmada. Sem confirmação, não mostra nome, rua nem referência.
   contratoInfo: (c, completo = true) =>
     [
@@ -27,8 +27,8 @@ const MSG = {
       c.status ? `📌 Situação: ${c.status}` : null,
     ].filter(Boolean).join('\n'),
   pedirVerificacao:
-    'Para proteger seus dados 🔒, me diga os *4 últimos dígitos* de um telefone cadastrado no seu contrato.\n\n' +
-    '_Se não souber, digite *pular*._',
+    'Pra sua segurança 🔒, me manda os *4 últimos números do telefone* que está no seu cadastro com a gente.\n\n' +
+    '_Ex.: se o número é (83) 99999-1234, mande *1234*. Se não souber, digite *pular*._',
   semBoleto: (c) => `Não encontrei boletos em aberto no contrato *${c.id}*. Está tudo em dia! 🎉`,
   erroSistema: 'Tive um problema para consultar o sistema agora. 😕 Vou te passar para um atendente.',
   atendenteDentro: 'Certo! Já avisei nossa equipe e em instantes um atendente vai falar com você por aqui. 😊',
@@ -39,12 +39,17 @@ const MSG = {
 
 // Opções clicáveis (no WhatsApp viram enquete). "valor" é o que o fluxo entende;
 // o cliente também pode digitar o número.
+// "Finalizar atendimento": aparece nos menus e também vale digitando "finalizar"/"encerrar" em qualquer etapa
+const FINALIZAR = { valor: 'f', texto: '✅ Finalizar atendimento', chave: /\b(finaliz|encerr|era so isso|so isso mesmo|nada mais)/ };
+const QUER_FINALIZAR = /^(f|finalizar|finaliza|finalizado|encerrar|encerra|encerrado|pode (finalizar|encerrar)|(finalizar|encerrar) (o )?atendimento)$/;
+
 const OP = {
   menu: [
     { valor: '1', texto: '💰 Financeiro (boleto e liberação)' },
     { valor: '2', texto: '🛠️ Suporte técnico (internet)' },
     { valor: '3', texto: '🚀 Quero contratar' },
     { valor: '4', texto: '👤 Falar com um atendente' },
+    FINALIZAR,
   ],
   confirmarDoc: [
     { valor: 's', texto: '✅ Sim, sou eu', chave: /^(sim|isso|sou eu|e eu|pode|pode sim|pode usar|esse mesmo|esse|mesmo|correto|exato|confirmo|ok)\b/ },
@@ -64,6 +69,7 @@ const OP = {
     { valor: '4', texto: '🔑 Trocar nome ou senha do Wi-Fi', chave: /\b(senha|nome da rede|nome do wifi|trocar (o )?wifi)\b/, prioridade: -2 },
     { valor: '5', texto: '🔧 Outro problema', chave: /\b(outro|outra coisa|diferente|nenhum desses|nenhuma dessas)\b/ },
     { valor: 'v', texto: '⬅️ Voltar' },
+    FINALIZAR,
   ],
   luz: [
     { valor: 's', texto: '🔴 Sim, tem luz vermelha', chave: /^(sim|tem|tem sim|esta vermelh|vermelh)|\bvermelh|\blos\b.*\b(acesa|aceso|piscando)/ },
@@ -83,6 +89,7 @@ const OP = {
     { valor: 'p', texto: '🔓 Liberação de confiança', chave: /\b(liber|confianca|promessa|desbloq)/ },
     { valor: 'b', texto: '📄 Receber o boleto', chave: /\b(boleto|fatura|pagar|pix|segunda via)\b/ },
     { valor: 'c', texto: '🛠️ Continuar com o suporte', chave: /\b(suporte|continuar|tecnico|nao e isso|outro problema)\b/ },
+    FINALIZAR,
   ],
   acordo: [
     { valor: 'a', texto: '🤝 Quero negociar um acordo', chave: /\b(sim|quero|acordo|negoci|parcel|proposta|desconto|voltar|aceito|pode ser|bora)\b/ },
@@ -95,6 +102,7 @@ const OP = {
     { valor: 'v', texto: '⬅️ Voltar (trocar CPF/contrato)' },
     { valor: '9', texto: '👤 Falar com um atendente' },
     { valor: '0', texto: '↩️ Voltar ao início' },
+    FINALIZAR,
   ],
   // Menu dos técnicos (números em TECNICO_NUMEROS)
   tecnico: [
@@ -184,7 +192,7 @@ function criarFluxo({
   const TEXTO_LEMBRETE = {
     doc: 'É só me mandar o *CPF ou CNPJ* do titular que eu continuo. 😊',
     contrato: 'É só tocar no contrato desejado que eu continuo. 😊',
-    verificar: 'É só me mandar os *4 últimos dígitos* de um telefone do cadastro (ou digite *pular*) que eu continuo. 😊',
+    verificar: 'É só me mandar os *4 últimos números do telefone* do seu cadastro (ou digite *pular*) que eu continuo. 😊',
     confirmar_doc: 'É só tocar em uma das opções acima que eu continuo. 😊',
     suporte_desc: 'É só me contar o que está acontecendo (pode ser áudio) que eu registro seu chamado. 😊',
     venda_local: 'É só me dizer sua cidade e bairro que eu continuo seu cadastro. 😊',
@@ -368,6 +376,7 @@ function criarFluxo({
       await menu(chatId);
       return;
     }
+    if (QUER_FINALIZAR.test(t)) return finalizar(chatId);
     // Pediu uma pessoa, ou algo que só uma pessoa resolve ("já paguei", "mudar de plano")
     const etapaDeTexto = ['suporte_desc', 'venda_local', 'venda_nome'].includes(s.etapa);
     if (t === '9' || ent.querAtendente(texto) || (!etapaDeTexto && ent.detectarIntencao(texto) === 'atendente')) {
@@ -900,6 +909,13 @@ function criarFluxo({
     return transferir(chatId, false);
   }
 
+  async function finalizar(chatId) {
+    log(`[fim] ${chatId}: cliente finalizou o atendimento`);
+    sessoes.delete(chatId);
+    salvarSessoes();
+    return enviar(chatId, 'Atendimento finalizado ✅ Obrigado por falar com a gente! Se precisar, é só mandar mensagem. 😊');
+  }
+
   async function etapaMenu(chatId, s, t) {
     const docMenu = ent.extrairDoc(t);
     if (docMenu) s.docPendente = docMenu;
@@ -981,17 +997,17 @@ function criarFluxo({
       return mostrarContratos(chatId, s);
     }
     // Texto sem números não conta como tentativa errada: só lembra o que precisa
-    if (!digitos.length) return enviar(chatId, 'Para continuar, me manda só os *4 últimos dígitos* de um telefone cadastrado no seu contrato.\n\n_Se não souber, digite *pular*._');
+    if (!digitos.length) return enviar(chatId, 'Pra continuar, me manda só os *4 últimos números do telefone* que está no seu cadastro.\n\n_Se não souber, digite *pular*._');
     s.tentativasVerif = (s.tentativasVerif || 0) + 1;
-    if (s.tentativasVerif >= 2) return seguirSemVerificar(chatId, s, 'Esses números não conferem com o cadastro.');
-    return enviar(chatId, 'Esses números não conferem com o cadastro 🤔 Confira e envie de novo, ou digite *pular*.');
+    if (s.tentativasVerif >= 2) return seguirSemVerificar(chatId, s, 'Esses números não batem com o telefone do seu cadastro.');
+    return enviar(chatId, 'Esses números não batem com o telefone do seu cadastro 🤔 Tenta de novo, ou digite *pular*.');
   }
 
   // Segue o atendimento (boleto, suporte...) sem mostrar nome, rua e referência
   async function seguirSemVerificar(chatId, s, inicio) {
     s.verificado = false;
     log(`[lgpd] ${chatId}: identidade não confirmada, seguindo sem mostrar dados do cadastro`);
-    await enviar(chatId, `${inicio} Vou continuar, mas por segurança não vou mostrar nome e endereço do cadastro. 🔒`);
+    await enviar(chatId, `${inicio} Vou continuar, mas pra sua segurança não vou mostrar nome e endereço. 🔒`);
     return mostrarContratos(chatId, s);
   }
 
