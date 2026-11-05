@@ -10,7 +10,7 @@
     "start": "node src/index.js",
     "simular": "node src/simulador.js",
     "simular:mock": "node src/simulador.js --mock",
-    "test": "node teste/entender.test.js"
+    "test": "node teste/entender.test.js && node teste/opcoes.test.js"
   },
   "engines": {
     "node": ">=18"
