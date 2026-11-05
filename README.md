@@ -8,7 +8,7 @@ Automatizar o atendimento de um provedor de internet pelo WhatsApp: o cliente re
 
 ## Atendimento ao cliente
 
-O menu tem 4 opções: **Financeiro** (2ª via de boleto e liberação de confiança), **Suporte técnico** (triagem do problema e resumo da ocorrência), **Quero contratar** e **Falar com atendente**. Se a primeira mensagem já disser o que o cliente quer ("preciso do boleto", "vocês instalam em...", "minha internet caiu"), o bot vai direto ao assunto.
+O menu tem as opções **Boleto e liberação da internet** (2ª via e liberação de confiança), **Problema na internet** (triagem e resumo da ocorrência), **Quero ser cliente**, **Falar com um atendente** e **Finalizar atendimento**, com linguagem simples e sem termos técnicos. Se a primeira mensagem já disser o que o cliente quer ("preciso do boleto", "vocês instalam em...", "minha internet caiu"), o bot vai direto ao assunto.
 
 **Financeiro**: a 2ª via sai com link do boleto, PIX copia e cola e linha digitável. Pedidos como "me manda a chave pix", "qr code" ou "quero pagar" já levam direto ao boleto. Contratos com fatura em atraso podem receber a liberação de confiança pelo próprio bot.
 
