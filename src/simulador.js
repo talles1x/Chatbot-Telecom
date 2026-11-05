@@ -59,7 +59,7 @@ async function processar() {
     if (linha === '#humano') { fluxo.pausar(CHAT); console.log('   (atendente assumiu - bot pausado)\n'); continue; }
     if (linha === '#bot') { fluxo.retomar(CHAT); console.log('   (bot religado)\n'); continue; }
     if (fluxo.estaPausado(CHAT)) { console.log('   (bot pausado - mensagem vai só para o atendente)\n'); continue; }
-    if (linha === '#foto') { await fluxo.receber(CHAT, '', { naoTexto: true }); continue; }
+    if (linha === '#foto') { await fluxo.receber(CHAT, '', { naoTexto: true, tipo: 'image' }); continue; }
     // #audio caminho\do\arquivo.ogg -> transcreve e manda como se o cliente tivesse falado
     if (linha.startsWith('#audio ')) {
       const texto = await require('./audio').transcrever(require('fs').readFileSync(linha.slice(7).trim().replace(/^"|"$/g, ''))).catch((e) => console.log('   erro:', e.message));

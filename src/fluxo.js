@@ -32,6 +32,11 @@ const MSG = {
   semBoleto: (c) => `Não encontrei boletos em aberto no contrato *${c.id}*. Está tudo em dia! 🎉`,
   erroSistema: 'Tive um problema para consultar o sistema agora. 😕 Vou te passar para um atendente.',
   atendenteDentro: 'Certo! Já avisei nossa equipe e em instantes um atendente vai falar com você por aqui. 😊',
+  // Foto ou documento fora do suporte (geralmente comprovante de pagamento)
+  comprovanteDentro: 'Recebi seu comprovante 📄✅ Já passei para a equipe conferir e dar baixa. Em instantes alguém confirma por aqui. 😊',
+  comprovanteFora: () =>
+    'Recebi seu comprovante 📄✅ Já passei para a equipe conferir e dar baixa. ' +
+    `Nosso horário de atendimento é de ${cfg.horario.texto}; assim que possível alguém confirma por aqui. 🙏`,
   atendenteFora: () =>
     `Nosso horário de atendimento é de ${cfg.horario.texto}, mas pode deixar sua mensagem por aqui ` +
     'que alguém da equipe vai te responder assim que possível. Por favor, aguarde. 🙏',
@@ -281,7 +286,7 @@ function criarFluxo({
     registrar(`[etapa] ${chatId} | ${etapaAntes} → ${estaPausado(chatId) ? 'COM O ATENDENTE (bot pausado)' : depois ? depois.etapa : '(conversa encerrada)'}`);
   }
 
-  async function receberInterno(chatId, texto, { naoTexto = false, audio = false, audioFalhou = false } = {}) {
+  async function receberInterno(chatId, texto, { naoTexto = false, audio = false, audioFalhou = false, tipo = '' } = {}) {
     let s = sessoes.get(chatId);
     const expirou = s && Date.now() - s.visto > cfg.sessaoMin * 60000;
 
@@ -336,7 +341,12 @@ function criarFluxo({
       s.visto = Date.now();
       return finalizarSuporte(chatId, s, '(cliente enviou áudio/foto, veja na conversa)');
     }
-    // Áudio, foto, documento (ex.: comprovante): manda para o atendente
+    // Foto ou documento (geralmente comprovante de pagamento): avisa que a equipe vai conferir e passa para o atendente
+    if (naoTexto && ['image', 'document'].includes(tipo)) {
+      await enviar(chatId, u.dentroDoHorario() ? MSG.comprovanteDentro : MSG.comprovanteFora());
+      return transferir(chatId, false);
+    }
+    // Outras mídias (vídeo, localização, contato): manda para o atendente
     if (naoTexto) {
       await transferir(chatId);
       return;

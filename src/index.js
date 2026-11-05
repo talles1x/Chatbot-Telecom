@@ -458,7 +458,7 @@ client.on('message', async (msg) => {
         if (!audio) registrar(`[áudio] ${numeroDe(chatId)}: transcrição desligada (TRANSCREVER_AUDIO=false no .env)`);
         return fluxo.receber(chatId, '', { audioFalhou: true });
       }
-      await fluxo.receber(chatId, msg.body, { naoTexto });
+      await fluxo.receber(chatId, msg.body, { naoTexto, tipo: msg.type });
     });
   } catch (e) {
     console.error('[erro ao receber]', e.message);
