@@ -70,7 +70,7 @@ const OP = {
   problema: [
     { valor: '1', texto: '🚫 Estou sem internet', chave: /\b(sem internet|nao (funciona|pega|conecta|esta funcionando|tem internet)|caiu|parou|sem sinal|nada funciona|apagou|sem conexao)/ },
     { valor: '2', texto: '🐢 Internet lenta', chave: /\b(lent|devagar|travando|trava|ruim|fraca|demora|nao carrega|velocidade)/ },
-    { valor: '3', texto: '📶 Internet caindo / oscilando', chave: /\b(caindo|cai toda|cai (direto|muito|toda hora|de vez em quando)|oscil|instavel|desconect|vai e volta|volta e cai)/, prioridade: -1 },
+    { valor: '3', texto: '📶 Internet caindo / oscilando', chave: /\b(caindo|cai toda|cai (direto|muito|toda hora|de vez em quando)|oscil|instavel|desconect|vai e volta|volta e cai|cai e volta|cai mas volta)/, prioridade: -1 },
     { valor: '4', texto: '🔑 Trocar nome ou senha do Wi-Fi', chave: /\b(senha|nome da rede|nome do wifi|trocar (o )?wifi)\b/, prioridade: -2 },
     { valor: '5', texto: '🔧 Outro problema', chave: /\b(outro|outra coisa|diferente|nenhum desses|nenhuma dessas)\b/ },
     { valor: 'v', texto: '⬅️ Voltar' },
@@ -78,13 +78,13 @@ const OP = {
   ],
   luz: [
     { valor: 's', texto: '🔴 Sim, tem luz vermelha', chave: /^(sim|tem|tem sim|esta vermelh|vermelh)|\bvermelh|\blos\b.*\b(acesa|aceso|piscando)/ },
-    { valor: 'n', texto: '🟢 Não, nenhuma vermelha', chave: /^(nao|nenhuma|tudo verde|verde|normal|tudo normal|esta normal|nao tem)\b/, prioridade: -0.5 },
-    { valor: 'd', texto: '⚫ O aparelho está desligado', chave: /\b(deslig|apagad|nao liga|nao acende|sem luz|nenhuma luz|luz nenhuma|tudo apagado|sem energia|faltou energia)/, prioridade: -1 },
+    { valor: 'n', texto: '🟢 Não, nenhuma vermelha', chave: /^(nao|nenhuma|tudo verde|verde|normal|tudo normal|esta normal|nao tem)\b|^(?!.*vermelh).*\bverd(e|es|inho|inha|inhos|inhas)\b|\b(nenhuma|nao tem( nenhuma)?|sem) (luz )?vermelh/, prioridade: -0.5 },
+    { valor: 'd', texto: '⚫ O aparelho está desligado', chave: /\b(deslig|apagad|nao liga|nao acende|sem luz(?! vermelh)|nenhuma luz(?! vermelh)|luz nenhuma|tudo apagado|sem energia|faltou energia)/, prioridade: -1 },
     { valor: 'x', texto: '🤷 Não sei ver', chave: /\b(nao sei|sei la|nao entendi|como (eu )?(vejo|sei|olho)|onde (fica|vejo)|nao consigo ver|nao achei)/, prioridade: -2 },
   ],
   reiniciou: [
     { valor: 's', texto: '✅ Já reiniciei e não resolveu', chave: /^(sim|ja|reiniciei|desliguei|fiz|varias vezes)\b|\bja (reiniciei|desliguei|fiz|tentei|tirei)\b/, prioridade: -1 },
-    { valor: 'n', texto: '🔌 Ainda não reiniciei', chave: /^(nao|ainda nao|nunca)\b|\bcomo (faz|faco|reinicia)\b/ },
+    { valor: 'n', texto: '🔌 Ainda não reiniciei', chave: /^(nao|ainda nao|nunca)\b|\bcomo (faz|faco|reinicia)\b|\bvou (fazer|reiniciar|tentar|testar|desligar)\b/ },
   ],
   resolveu: [
     { valor: 's', texto: '✅ Voltou a funcionar', chave: /^(sim|voltou|funcionou|resolveu|resolvido|deu certo|esta funcionando|funcionando|normalizou|ja voltou|ja esta|agora (sim|foi|voltou|funcionou|esta))\b/ },
@@ -98,7 +98,7 @@ const OP = {
   ],
   acordo: [
     { valor: 'a', texto: '🤝 Quero negociar um acordo', chave: /\b(sim|quero|acordo|negoci|parcel|proposta|desconto|voltar|aceito|pode ser|bora)\b/ },
-    { valor: 'b', texto: '📄 Só quero ver meus boletos', chave: /\b(boleto|fatura|segunda via|ver|pix|pagar tudo)\b/ },
+    { valor: 'b', texto: '📄 Só quero ver meus boletos', chave: /\b(boletos?|faturas?|segunda via|ver|pix|pagar tudo)\b/, prioridade: -0.5 },
     { valor: 'n', texto: '⏭️ Agora não', chave: /^(nao|agora nao|depois|outra hora|nao quero|mais tarde)\b/, prioridade: -1 },
   ],
   financeiro: [
