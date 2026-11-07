@@ -627,13 +627,21 @@ function criarFluxo({
 
   // ---------- Equipe (ATENDENTE_NUMEROS) ----------
   const cacheEquipe = new Map();
+  // Número da equipe: está em ATENDENTE_NUMEROS ou em algum caixa de CAIXAS
   async function ehEquipe(chatId) {
-    if (!cfg.atendentesNumeros.length) return false;
+    const numerosCaixas = cfg.caixas.flatMap((c) => c.numeros);
+    if (!cfg.atendentesNumeros.length && !numerosCaixas.length) return false;
     if (!cacheEquipe.has(chatId)) {
       const numero = await Promise.resolve(numeroDoChat(chatId)).catch(() => '');
-      cacheEquipe.set(chatId, cfg.atendentesNumeros.some((n) => u.mesmoNumero(n, numero)));
+      cacheEquipe.set(chatId, [...cfg.atendentesNumeros, ...numerosCaixas].some((n) => u.mesmoNumero(n, numero)));
     }
     return cacheEquipe.get(chatId);
+  }
+
+  // Caixas que este número pode fechar (caixa sem números = qualquer pessoa da equipe)
+  async function caixasDe(chatId) {
+    const numero = await Promise.resolve(numeroDoChat(chatId)).catch(() => '');
+    return cfg.caixas.filter((c) => !c.numeros.length || c.numeros.some((n) => u.mesmoNumero(n, numero)));
   }
 
   const menuEquipe = (chatId, pergunta = 'Olá! 👋 O que você precisa? 👇') => perguntar(chatId, pergunta, OP.equipe);
@@ -650,6 +658,7 @@ function criarFluxo({
     }
     s.visto = Date.now();
     if (s.etapa.startsWith('equipe_pc_')) return etapaPreCadastro(chatId, s, texto, naoTexto || audioFalhou);
+    if (s.etapa === 'equipe_caixa') return etapaEscolherCaixa(chatId, s, texto);
     if (naoTexto || audioFalhou) return menuEquipe(chatId, 'Recebi. 👍 O que você precisa? 👇');
     let t = u.normalizar(texto);
     if (/^\d{1,2}$/.test(t) && OP.equipe[Number(t) - 1]) t = OP.equipe[Number(t) - 1].valor;
@@ -660,7 +669,17 @@ function criarFluxo({
   async function opcaoEquipe(chatId, s, t) {
     if (t === 'c') {
       s.etapa = 'equipe_menu';
-      await fecharCaixa(chatId);
+      const caixas = await caixasDe(chatId);
+      if (caixas.length > 1) {
+        // Mais de um caixa: pergunta qual fechar
+        s.etapa = 'equipe_caixa';
+        s.caixasOpcoes = caixas.map((c) => c.nome);
+        return perguntar(chatId, 'Qual caixa você quer fechar? 👇', [
+          ...caixas.map((c, i) => ({ valor: String(i + 1), texto: `💰 ${c.nome || `Caixa ${i + 1}`}` })),
+          { valor: '0', texto: '↩️ Voltar' },
+        ]);
+      }
+      await fecharCaixa(chatId, caixas[0]);
       return menuEquipe(chatId, 'Precisa de mais alguma coisa? 👇');
     }
     if (t === 'p') {
@@ -675,11 +694,28 @@ function criarFluxo({
     return menuEquipe(chatId, 'Não entendi 😅 Escolha uma das opções 👇');
   }
 
-  async function fecharCaixa(chatId) {
-    const usuarios = cfg.caixa.usuarios;
+  async function etapaEscolherCaixa(chatId, s, texto) {
+    const t = u.normalizar(texto);
+    const caixas = await caixasDe(chatId);
+    // "Voltar" é a última opção da lista (número logo depois dos caixas) ou 0
+    if (['0', 'voltar', 'v', 'menu', 'cancelar', String(caixas.length + 1)].includes(t)) {
+      s.etapa = 'equipe_menu';
+      return menuEquipe(chatId, 'Certo. O que você precisa? 👇');
+    }
+    let c = /^\d{1,2}$/.test(t) ? caixas[Number(t) - 1] : null;
+    if (!c) c = caixas.find((x) => x.nome && (t.includes(u.normalizar(x.nome)) || u.normalizar(x.nome).includes(t)) && t.length >= 3);
+    if (!c) return enviar(chatId, `Não entendi 😅 Responda com o número do caixa, ou *${caixas.length + 1}* para voltar.`);
+    s.etapa = 'equipe_menu';
+    await fecharCaixa(chatId, c);
+    return menuEquipe(chatId, 'Precisa de mais alguma coisa? 👇');
+  }
+
+  async function fecharCaixa(chatId, caixa) {
+    const usuarios = (caixa && caixa.usuarios) || [];
+    const nomeCaixa = (caixa && caixa.nome) || '';
     // Sem usuário configurado, não mostra nada (senão sairiam os pagamentos da empresa inteira)
     if (!usuarios.length) {
-      log('[caixa] CAIXA_USUARIOS_SGP vazio no .env: fechamento não configurado');
+      log(`[caixa] caixa "${nomeCaixa}" sem usuário do SGP no .env: fechamento não configurado`);
       return enviar(chatId, 'O fechamento de caixa ainda não está configurado (falta informar o usuário do SGP deste caixa). Avise o administrador do bot. 🙏');
     }
     const hoje = u.agoraLocal().hojeISO;
@@ -695,7 +731,7 @@ function criarFluxo({
       .sort((a, b) => a.data.localeCompare(b.data)); // em ordem de horário
     const total = meus.reduce((soma, p) => soma + p.valor, 0);
     const hora = new Date().toLocaleTimeString('pt-BR', { timeZone: cfg.fuso, hour: '2-digit', minute: '2-digit' });
-    const titulo = `💰 *Fechamento de caixa${cfg.caixa.nome ? ` - ${cfg.caixa.nome}` : ''}*`;
+    const titulo = `💰 *Fechamento de caixa${nomeCaixa ? ` - ${nomeCaixa}` : ''}*`;
     const cab = [titulo, `📅 ${u.dataBR(hoje)} (até ${hora})`, `👤 Usuário SGP: ${usuarios.join(', ')}`].join('\n');
     registrar(`[caixa] ${chatId}: ${meus.length} pagamento(s), ${u.moeda(total)} (usuários: ${usuarios.join(', ')})`);
     if (!meus.length) return enviar(chatId, `${cab}\n\nNenhum pagamento recebido hoje por esse usuário.`);
@@ -722,7 +758,7 @@ function criarFluxo({
     if (enviarPdf) {
       const html = htmlFechamento({
         empresa: cfg.empresa,
-        local: cfg.caixa.nome,
+        local: nomeCaixa,
         data: u.dataBR(hoje),
         hora,
         usuarios,
@@ -731,7 +767,7 @@ function criarFluxo({
         porPortador: Object.entries(porPortador).map(([nome, v]) => ({ nome, n: v.n, v: v.v })),
         geradoEm: `${u.dataBR(hoje)} às ${hora}`,
       });
-      const nome = `fechamento-caixa${cfg.caixa.nome ? `-${u.normalizar(cfg.caixa.nome).replace(/[^a-z0-9]+/g, '-')}` : ''}-${hoje}.pdf`;
+      const nome = `fechamento-caixa${nomeCaixa ? `-${u.normalizar(nomeCaixa).replace(/[^a-z0-9]+/g, '-')}` : ''}-${hoje}.pdf`;
       try {
         await enviarPdf(chatId, html, nome, resumoTxt);
         return;

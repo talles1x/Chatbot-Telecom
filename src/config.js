@@ -9,6 +9,24 @@ const lista = (v) =>
     .map((s) => s.replace(/\D/g, ''))
     .filter(Boolean);
 
+function lerCaixas() {
+  const separar = (t) => String(t || '').split(',').map((x) => x.trim()).filter(Boolean);
+  if ((process.env.CAIXAS || '').trim()) {
+    return process.env.CAIXAS.split(';').map((c) => {
+      const [nome, usuarios, numeros] = c.split('|');
+      return {
+        nome: String(nome || '').trim(),
+        usuarios: separar(usuarios).map((x) => x.toLowerCase()),
+        numeros: separar(numeros).map((x) => x.replace(/\D/g, '')),
+      };
+    }).filter((c) => c.nome || c.usuarios.length);
+  }
+  const usuarios = separar(process.env.CAIXA_USUARIOS_SGP).map((x) => x.toLowerCase());
+  return usuarios.length || process.env.CAIXA_NOME
+    ? [{ nome: (process.env.CAIXA_NOME || '').trim(), usuarios, numeros: [] }] // numeros vazio = todos da equipe
+    : [];
+}
+
 function lerTurnos(txt) {
   return txt.split(',').map((t) => {
     const [ini, fim] = t.trim().split('-');
@@ -43,12 +61,10 @@ module.exports = {
     const [numero, ...nome] = t.split('=');
     return { numero: numero.replace(/\D/g, ''), nome: nome.join('=').trim() };
   }).filter((t) => t.numero),
-  caixa: {
-    // Usuários do SGP cujas baixas entram no fechamento (vazio = todos os pagamentos do dia)
-    usuarios: (process.env.CAIXA_USUARIOS_SGP || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
-    // Nome que aparece no título do fechamento (ex.: o local de recebimento)
-    nome: process.env.CAIXA_NOME || '',
-  },
+  // Caixas para o fechamento: CAIXAS=Nome|usuarios do SGP|números que podem fechar ; Outro caixa|...
+  // Ex.: CAIXAS=Centro|joao|5583999999999;Loja 2|maria,ana|5583999999999,5583888888888
+  // Sem CAIXAS, vale o formato antigo: um caixa (CAIXA_NOME + CAIXA_USUARIOS_SGP) para os ATENDENTE_NUMEROS.
+  caixas: lerCaixas(),
   horario: {
     dias: (process.env.HORARIO_DIAS || '1,2,3,4,5,6').split(',').map(Number),
     turnos: lerTurnos(process.env.HORARIO_TURNOS || '08:00-12:00,13:00-17:00'),
