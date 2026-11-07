@@ -28,9 +28,9 @@ O menu tem as opções **Boleto e liberação da internet** (2ª via e liberaç�
 
 ## Menu da equipe
 
-Os números em `ATENDENTE_NUMEROS` (por exemplo, o atendente de um ponto de recebimento) recebem um menu próprio:
+Os números em `ATENDENTE_NUMEROS` ou em algum caixa de `CAIXAS` (por exemplo, o atendente de um ponto de recebimento) recebem um menu próprio:
 
-- **Fechar o caixa**: puxa do SGP os pagamentos do dia baixados pelos usuários em `CAIXA_USUARIOS_SGP` e manda um **PDF** com o total, a quantidade, o total por portador e a lista para conferência (hora, contrato, nome abreviado, portador e valor), com o resumo na legenda.
+- **Fechar o caixa**: puxa do SGP os pagamentos do dia baixados pelos usuários daquele caixa e manda um **PDF** com o total, a quantidade, o total por portador e a lista para conferência (hora, contrato, nome abreviado, portador e valor), com o resumo na legenda. Cada caixa (`CAIXAS=Nome|usuários do SGP|números`) tem seus próprios usuários; quem cuida de mais de um caixa escolhe qual fechar.
 - **Avisar pré-cadastro**: pede o nome do cliente, o dia de vencimento e o plano, e registra o aviso para a equipe.
 - **Falar com atendente**: passa a conversa para uma pessoa.
 
