@@ -5,7 +5,8 @@ const u = require('./util');
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// f = { empresa, local, data (dd/mm/aaaa), hora, usuarios[], pagamentos[{hora, contrato, cliente, portador, valor}], total, porPortador[{nome, n, v}], geradoEm }
+// f = { empresa, local, data (dd/mm/aaaa), hora, usuarios[], pagamentos[{hora, contrato, cliente, forma, valor}], total,
+//       porForma[{nome, n, v}], porPortador[{nome, n, v}] (vazio = não mostra), geradoEm }
 function htmlFechamento(f) {
   const linhasHtml = f.pagamentos.map((p, i) => `
         <tr>
@@ -13,14 +14,20 @@ function htmlFechamento(f) {
           <td>${esc(p.hora || '-')}</td>
           <td>${esc(p.contrato || '-')}</td>
           <td>${esc(p.cliente || 'Cliente')}</td>
-          <td>${esc(p.portador || '-')}</td>
+          <td>${esc(p.forma || '-')}</td>
           <td class="v">${esc(u.moeda(p.valor))}</td>
         </tr>`);
   // As 3 últimas linhas ficam no mesmo bloco do total, para o total nunca cair sozinho numa página
   const corpo = linhasHtml.slice(0, -3).join('');
   const fim = linhasHtml.slice(-3).join('');
-  const portadores = f.porPortador.map((p) => `
-        <tr><td>${esc(p.nome)}</td><td class="n">${p.n}</td><td class="v">${esc(u.moeda(p.v))}</td></tr>`).join('');
+  const tabela = (titulo, lista) => !lista || !lista.length ? '' : `
+  <h2>${titulo}</h2>
+  <table class="port">
+    <thead><tr><th>${titulo.replace('Por ', '').replace(/^./, (c) => c.toUpperCase())}</th><th class="n">Qtd.</th><th class="v">Valor</th></tr></thead>
+    <tbody>${lista.map((p) => `
+        <tr><td>${esc(p.nome)}</td><td class="n">${p.n}</td><td class="v">${esc(u.moeda(p.v))}</td></tr>`).join('')}
+    </tbody>
+  </table>`;
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -68,16 +75,12 @@ function htmlFechamento(f) {
     <div class="card"><div class="rot">Total recebido</div><div class="num">${esc(u.moeda(f.total))}</div></div>
   </div>
 
-  <h2>Por portador</h2>
-  <table class="port">
-    <thead><tr><th>Portador</th><th class="n">Qtd.</th><th class="v">Valor</th></tr></thead>
-    <tbody>${portadores}
-    </tbody>
-  </table>
+${tabela('Por forma de pagamento', f.porForma)}
+${tabela('Por portador', f.porPortador)}
 
   <h2>Lista de pagamentos</h2>
   <table>
-    <thead><tr><th class="n">#</th><th>Hora</th><th>Contrato</th><th>Cliente</th><th>Portador</th><th class="v">Valor</th></tr></thead>
+    <thead><tr><th class="n">#</th><th>Hora</th><th>Contrato</th><th>Cliente</th><th>Forma</th><th class="v">Valor</th></tr></thead>
     <tbody>${corpo}
     </tbody>
     <tfoot>${fim}

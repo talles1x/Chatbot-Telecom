@@ -209,6 +209,7 @@ async function titulosPagos(dataISO) {
     data: String(primeiro(t, ['dataPagamento', 'data_pagamento']) || ''),
     usuario: String(primeiro(t, ['usuario_baixa', 'usuarioBaixa']) || ''),
     portador: String(primeiro(t, ['portador']) || ''),
+    forma: String(primeiro(t, ['formaPagamento', 'forma_pagamento']) || ''),
   }));
 }
 
@@ -296,9 +297,9 @@ const mock = {
   titulosPagos() {
     const hoje = new Date().toISOString().slice(0, 10);
     return [
-      { id: 80, cliente: 'CLIENTE TESTE DA SILVA', contrato: 1001, valor: 99.9, data: `${hoje} 09:15:00`, usuario: 'caixa.teste', portador: 'Caixa Local' },
-      { id: 81, cliente: 'MARIA DE TESTE', contrato: 1004, valor: 79.9, data: `${hoje} 10:40:00`, usuario: 'caixa.teste', portador: 'PIX' },
-      { id: 82, cliente: 'JOSE EXEMPLO', contrato: 1005, valor: 49.9, data: `${hoje} 11:05:00`, usuario: 'outro.usuario', portador: 'Banco' },
+      { id: 80, cliente: 'CLIENTE TESTE DA SILVA', contrato: 1001, valor: 99.9, data: `${hoje} 09:15:00`, usuario: 'caixa.teste', portador: 'Caixa Local', forma: 'Dinheiro' },
+      { id: 81, cliente: 'MARIA DE TESTE', contrato: 1004, valor: 79.9, data: `${hoje} 10:40:00`, usuario: 'caixa.teste', portador: 'Caixa Local', forma: 'PIX' },
+      { id: 82, cliente: 'JOSE EXEMPLO', contrato: 1005, valor: 49.9, data: `${hoje} 11:05:00`, usuario: 'outro.usuario', portador: 'Banco', forma: 'Cartão de Débito' },
     ];
   },
   liberarPromessa() {

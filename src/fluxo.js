@@ -710,6 +710,16 @@ function criarFluxo({
     return menuEquipe(chatId, 'Precisa de mais alguma coisa? 👇');
   }
 
+  // Ícone de cada forma de pagamento no resumo
+  function iconeForma(nome) {
+    const n = u.normalizar(nome);
+    if (/pix/.test(n)) return '📱';
+    if (/cartao|credito|debito/.test(n)) return '💳';
+    if (/dinheiro|especie/.test(n)) return '💵';
+    if (/boleto|banc|transfer|deposito/.test(n)) return '🏦';
+    return '▫️';
+  }
+
   async function fecharCaixa(chatId, caixa) {
     const usuarios = (caixa && caixa.usuarios) || [];
     const nomeCaixa = (caixa && caixa.nome) || '';
@@ -736,21 +746,30 @@ function criarFluxo({
     registrar(`[caixa] ${chatId}: ${meus.length} pagamento(s), ${u.moeda(total)} (usuários: ${usuarios.join(', ')})`);
     if (!meus.length) return enviar(chatId, `${cab}\n\nNenhum pagamento recebido hoje por esse usuário.`);
 
-    const porPortador = {};
-    for (const p of meus) {
-      const k = p.portador || 'Sem portador';
-      porPortador[k] = porPortador[k] || { n: 0, v: 0 };
-      porPortador[k].n++;
-      porPortador[k].v += p.valor;
-    }
+    // Soma por forma de pagamento (Dinheiro, PIX, Cartão...) e por portador (conta onde caiu), do maior para o menor
+    const agrupar = (campo, vazio) => {
+      const m = {};
+      for (const p of meus) {
+        const k = p[campo] || vazio;
+        m[k] = m[k] || { n: 0, v: 0 };
+        m[k].n++;
+        m[k].v += p.valor;
+      }
+      return Object.entries(m).map(([nome, v]) => ({ nome, n: v.n, v: v.v })).sort((a, b) => b.v - a.v);
+    };
+    const porForma = agrupar('forma', 'Não informada');
+    const porPortador = agrupar('portador', 'Sem portador');
+    const linha = (x) => `• ${iconeForma(x.nome)} ${x.nome}: ${x.n} - ${u.moeda(x.v)}`;
     const resumoTxt = [
       cab,
       '',
       `Pagamentos: *${meus.length}*`,
       `Total recebido: *${u.moeda(total)}*`,
       '',
-      '*Por portador:*',
-      ...Object.entries(porPortador).map(([k, v]) => `• ${k}: ${v.n} - ${u.moeda(v.v)}`),
+      '*Por forma de pagamento:*',
+      ...porForma.map(linha),
+      // Portador só aparece quando há mais de um (com um só, não diferencia nada)
+      ...(porPortador.length > 1 ? ['', '*Por portador:*', ...porPortador.map((x) => `• ${x.nome}: ${x.n} - ${u.moeda(x.v)}`)] : []),
     ].join('\n');
     const horaDe = (p) => (p.data.match(/(\d{2}:\d{2})/) || [])[1] || '';
 
@@ -762,9 +781,10 @@ function criarFluxo({
         data: u.dataBR(hoje),
         hora,
         usuarios,
-        pagamentos: meus.map((p) => ({ hora: horaDe(p), contrato: p.contrato, cliente: nomeLGPD(p.cliente), portador: p.portador, valor: p.valor })),
+        pagamentos: meus.map((p) => ({ hora: horaDe(p), contrato: p.contrato, cliente: nomeLGPD(p.cliente), forma: p.forma, valor: p.valor })),
         total,
-        porPortador: Object.entries(porPortador).map(([nome, v]) => ({ nome, n: v.n, v: v.v })),
+        porForma,
+        porPortador: porPortador.length > 1 ? porPortador : [],
         geradoEm: `${u.dataBR(hoje)} às ${hora}`,
       });
       const nome = `fechamento-caixa${nomeCaixa ? `-${u.normalizar(nomeCaixa).replace(/[^a-z0-9]+/g, '-')}` : ''}-${hoje}.pdf`;
@@ -781,7 +801,7 @@ function criarFluxo({
     // Lista para conferência (até 60 por mensagem)
     const linhas = meus.map((p, i) => {
       const h = horaDe(p);
-      return `${i + 1}. ${p.contrato ? `Contrato ${p.contrato} - ` : ''}${nomeLGPD(p.cliente) || 'Cliente'} - ${u.moeda(p.valor)}${h ? ` (${h})` : ''}`;
+      return `${i + 1}. ${p.contrato ? `Contrato ${p.contrato} - ` : ''}${nomeLGPD(p.cliente) || 'Cliente'} - ${u.moeda(p.valor)}${p.forma ? ` - ${p.forma}` : ''}${h ? ` (${h})` : ''}`;
     });
     for (let i = 0; i < linhas.length; i += 60) {
       await enviar(chatId, `${i === 0 ? '*Lista de pagamentos:*\n' : ''}${linhas.slice(i, i + 60).join('\n')}`);
