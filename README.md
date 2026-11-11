@@ -49,6 +49,7 @@ Em qualquer passo, *0* volta ao menu.
 
 - Quando o cliente pede atendente (ou manda foto ou comprovante), o bot avisa o cliente, deixa a conversa como **não lida** e fica em silêncio nessa conversa por 3h (`PAUSA_HUMANO_HORAS`).
 - Quando o atendente responde uma conversa pelo celular, o bot sai dela automaticamente.
+- Quando o atendente encerra o atendimento com uma mensagem como "atendimento finalizado", "vou encerrar seu atendimento" ou "agradecemos o contato" (ou manda `#fim`), o bot volta a atender aquele cliente na próxima mensagem dele. A despedida enviada logo em seguida ("tenha um bom dia") não pausa o bot de novo.
 - `#bot` enviado pelo atendente na conversa religa o bot para aquele cliente; `#pausa` desliga. Os comandos são apagados da conversa sozinhos.
 - Fora do horário de atendimento (`HORARIO_DIAS`, `HORARIO_TURNOS` e `HORARIO_TEXTO`), quem pede atendente recebe a mensagem com o horário.
 
