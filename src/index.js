@@ -498,6 +498,23 @@ client.on('vote_update', async (voto) => {
   }
 });
 
+// Número do próprio bot (a conversa "Mensagens para mim" vira entrada da equipe)
+function meuNumero() {
+  return (client.info && client.info.wid && client.info.wid.user) || '';
+}
+async function ehConversaComigo(msg, chatId) {
+  const eu = meuNumero();
+  if (!eu) return false;
+  if (msg.from && msg.from === msg.to) return true;
+  const numero = await numeroReal(chatId).catch(() => numeroDe(chatId));
+  return u.mesmoNumero(numero, eu);
+}
+function meuNumeroNaEquipe() {
+  const eu = meuNumero();
+  const equipe = [...cfg.atendentesNumeros, ...cfg.caixas.flatMap((c) => c.numeros), ...cfg.tecnicos.map((t) => t.numero)];
+  return equipe.some((n) => u.mesmoNumero(n, eu));
+}
+
 // Quando o atendente encerrou cada conversa (para não pausar de novo com a despedida)
 const encerradoEm = new Map();
 const JANELA_DESPEDIDA_MS = 10 * 60000;
@@ -523,6 +540,18 @@ client.on('message_create', async (msg) => {
     // Foi o próprio bot
     if (qtd > 1) enviandoAgora.set(k, qtd - 1);
     else enviandoAgora.delete(k);
+    return;
+  }
+
+  // "Mensagens para mim": o dono do número do bot usa aqui o menu da equipe (caixa, técnico)
+  if (await ehConversaComigo(msg, chatId)) {
+    if (msg.timestamp && msg.timestamp < LIGADO_EM) return;
+    if (!meuNumeroNaEquipe()) return; // fora da equipe: o bot não responde nessa conversa
+    if (msg.type !== 'chat') return;
+    cacheNumeros.set(chatId, meuNumero()); // o menu da equipe reconhece o número do dono
+    if (fluxo.estaPausado(chatId)) fluxo.retomar(chatId);
+    registrar(`[recebida] (mensagens para mim): ${ocultarDocs(msg.body)}`);
+    naFila(chatId, () => fluxo.receber(chatId, msg.body, { tipo: msg.type }));
     return;
   }
 
