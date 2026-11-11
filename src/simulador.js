@@ -3,9 +3,10 @@
 // Simulador: conversa com o bot pelo terminal, sem WhatsApp.
 // npm run simular        -> usa o SGP de verdade (.env)
 // npm run simular:mock   -> usa dados falsos
-// Comandos: #humano (simula o atendente assumindo), #bot (religa), #foto, #audio arquivo.ogg, sair
+// Comandos: #humano (simula o atendente assumindo), #bot ou #fim (religa), #foto, #audio arquivo.ogg, sair
 const readline = require('readline');
 const cfg = require('./config');
+const u = require('./util');
 const { criarFluxo } = require('./fluxo');
 const { criarEstado } = require('./estado');
 
@@ -45,7 +46,7 @@ const fluxo = criarFluxo({
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: process.stdin.isTTY });
 console.log(`Simulador do bot ${cfg.empresa} ${cfg.sgp.mock ? '(SGP MOCK - dados falsos)' : `(SGP: ${cfg.sgp.url})`}`);
-console.log('Digite como se fosse o cliente. Comandos: #humano, #bot, #foto, #audio arquivo.ogg, sair\n');
+console.log('Digite como se fosse o cliente. Comandos: #humano, #bot, #fim, #foto, #audio arquivo.ogg, sair\n');
 if (process.stdin.isTTY) rl.setPrompt('👤 Você: '), rl.prompt();
 
 async function processar() {
@@ -57,7 +58,7 @@ async function processar() {
     if (!process.stdin.isTTY) console.log(`👤 Você: ${linha}`);
     if (linha === 'sair') process.exit(0);
     if (linha === '#humano') { fluxo.pausar(CHAT); console.log('   (atendente assumiu - bot pausado)\n'); continue; }
-    if (linha === '#bot') { fluxo.retomar(CHAT); console.log('   (bot religado)\n'); continue; }
+    if (linha === '#bot' || u.ehEncerramento(linha)) { fluxo.retomar(CHAT); console.log('   (bot religado)\n'); continue; }
     if (fluxo.estaPausado(CHAT)) { console.log('   (bot pausado - mensagem vai só para o atendente)\n'); continue; }
     if (linha === '#foto') { await fluxo.receber(CHAT, '', { naoTexto: true, tipo: 'image' }); continue; }
     // #audio caminho\do\arquivo.ogg -> transcreve e manda como se o cliente tivesse falado

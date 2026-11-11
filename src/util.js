@@ -109,7 +109,20 @@ function mesmoNumero(a, b) {
   return x.length === 8 && x === y;
 }
 
+// Mensagem do atendente que encerra o atendimento ("atendimento finalizado", "vou encerrar seu atendimento",
+// "agradecemos o contato", #fim...). Depois dela o bot volta a responder esse cliente.
+const RE_FIM = new RegExp([
+  '^#(fim|finalizar|encerrar)$',
+  '\\batendimento (foi |esta |sera )?(finalizado|encerrado|concluido)',
+  '\\b(finaliz|encerr|conclu)\\w* (o |a )?(seu |este |esse |nosso )?atendimento',
+  '\\b(agradece|obrigad)\\w* (o |pelo |a |seu |pelo seu )*contato',
+].join('|'));
+function ehEncerramento(t) {
+  return RE_FIM.test(normalizar(t));
+}
+
 module.exports = {
+  ehEncerramento,
   agoraLocal, dentroDoHorario, paraISO, dataBR, diasDeAtraso, moeda,
   soDigitos, cpfValido, cnpjValido, esperar, aleatorio, normalizar, mesmoNumero, ehMensagemDoCliente,
 };

@@ -498,6 +498,10 @@ client.on('vote_update', async (voto) => {
   }
 });
 
+// Quando o atendente encerrou cada conversa (para não pausar de novo com a despedida)
+const encerradoEm = new Map();
+const JANELA_DESPEDIDA_MS = 10 * 60000;
+
 // Mensagem enviada pelo número da empresa (bot OU atendente no celular/WhatsApp Web)
 client.on('message_create', async (msg) => {
   if (!msg.fromMe) return;
@@ -529,12 +533,24 @@ client.on('message_create', async (msg) => {
     console.log(`[bot religado] ${numeroDe(chatId)}`);
     return;
   }
+  // Atendente encerrou: o bot volta a atender esse cliente na próxima mensagem dele
+  if (u.ehEncerramento(msg.body)) {
+    fluxo.retomar(chatId);
+    encerradoEm.set(chatId, Date.now());
+    if (comando.startsWith('#')) await msg.delete(true).catch(() => {});
+    registrar(`[atendimento encerrado] ${numeroDe(chatId)} - bot religado para esse cliente`);
+    return;
+  }
   if (comando === '#pausa') {
     fluxo.pausar(chatId);
     await msg.delete(true).catch(() => {});
     console.log(`[bot pausado] ${numeroDe(chatId)}`);
     return;
   }
+
+  // Logo depois de encerrar, a despedida do atendente ("tenha um bom dia") não pausa o bot de novo
+  if (Date.now() - (encerradoEm.get(chatId) || 0) < JANELA_DESPEDIDA_MS) return;
+  encerradoEm.delete(chatId);
 
   // Atendente respondeu manualmente: o bot sai de cena nessa conversa
   if (!fluxo.estaPausado(chatId)) {
