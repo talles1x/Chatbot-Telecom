@@ -37,10 +37,18 @@ const MSG = {
   comprovanteFora: () =>
     'Recebi seu comprovante 📄✅ Já passei para a equipe conferir e dar baixa. ' +
     `Nosso horário de atendimento é de ${cfg.horario.texto}; assim que possível alguém confirma por aqui. 🙏`,
+  // Foto que não parece comprovante
+  imagemDentro: 'Recebi sua imagem 👍 Já passei para a equipe e em instantes alguém fala com você por aqui. 😊',
+  imagemFora: () =>
+    `Recebi sua imagem 👍 Já passei para a equipe. Nosso horário de atendimento é de ${cfg.horario.texto}; assim que possível alguém fala com você por aqui. 🙏`,
   atendenteFora: () =>
     `Nosso horário de atendimento é de ${cfg.horario.texto}, mas pode deixar sua mensagem por aqui ` +
     'que alguém da equipe vai te responder assim que possível. Por favor, aguarde. 🙏',
 };
+
+// Legenda de imagem: propaganda (ignorada) e pagamento (vira comprovante)
+const RE_PROPAGANDA = /\b(black friday|promocao|promo|mega promo|desconto|oferta|ofertas|aproveite|cupom|liquidacao|frete gratis|so hoje|compre)\b|\d+ ?% ?(off|de desconto)/;
+const RE_PAGAMENTO = /\b(comprovante|paguei|pago|paga|pagamento|pix|transferencia|transferi|deposito|boleto|fatura|mensalidade)\b/;
 
 // Opções clicáveis (no WhatsApp viram enquete). "valor" é o que o fluxo entende;
 // o cliente também pode digitar o número.
@@ -286,7 +294,7 @@ function criarFluxo({
     registrar(`[etapa] ${chatId} | ${etapaAntes} → ${estaPausado(chatId) ? 'COM O ATENDENTE (bot pausado)' : depois ? depois.etapa : '(conversa encerrada)'}`);
   }
 
-  async function receberInterno(chatId, texto, { naoTexto = false, audio = false, audioFalhou = false, tipo = '' } = {}) {
+  async function receberInterno(chatId, texto, { naoTexto = false, audio = false, audioFalhou = false, tipo = '', encaminhada = false } = {}) {
     let s = sessoes.get(chatId);
     const expirou = s && Date.now() - s.visto > cfg.sessaoMin * 60000;
 
@@ -341,9 +349,19 @@ function criarFluxo({
       s.visto = Date.now();
       return finalizarSuporte(chatId, s, '(cliente enviou áudio/foto, veja na conversa)');
     }
-    // Foto ou documento (geralmente comprovante de pagamento): avisa que a equipe vai conferir e passa para o atendente
+    // Foto ou documento
     if (naoTexto && ['image', 'document'].includes(tipo)) {
-      await enviar(chatId, u.dentroDoHorario() ? MSG.comprovanteDentro : MSG.comprovanteFora());
+      const legenda = u.normalizar(texto);
+      // Propaganda (de fornecedor, loja...): não responde e não chama o atendente
+      if (RE_PROPAGANDA.test(legenda)) {
+        registrar(`[ignorada] ${chatId}: imagem de propaganda ("${resumo(texto, 60)}")`);
+        return;
+      }
+      // Tem cara de comprovante: legenda de pagamento, PDF, cliente no meio do boleto ou foto sem legenda que não foi encaminhada
+      const noFinanceiro = s && !expirou && (s.destino === 'financeiro' || ['financeiro', 'contrato', 'doc', 'verificar', 'confirmar_doc'].includes(s.etapa));
+      const comprovante = RE_PAGAMENTO.test(legenda) || tipo === 'document' || noFinanceiro || (!legenda && !encaminhada);
+      if (comprovante) await enviar(chatId, u.dentroDoHorario() ? MSG.comprovanteDentro : MSG.comprovanteFora());
+      else await enviar(chatId, u.dentroDoHorario() ? MSG.imagemDentro : MSG.imagemFora());
       return transferir(chatId, false);
     }
     // Outras mídias (vídeo, localização, contato): manda para o atendente
