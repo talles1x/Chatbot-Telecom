@@ -567,7 +567,7 @@ client.on('message_create', async (msg) => {
     fluxo.retomar(chatId);
     encerradoEm.set(chatId, Date.now());
     if (comando.startsWith('#')) await msg.delete(true).catch(() => {});
-    registrar(`[atendimento encerrado] ${numeroDe(chatId)} - bot religado para esse cliente`);
+    registrar(`[atendimento encerrado] ${numeroDe(chatId)} - bot religado para esse cliente (mensagem: "${resumo(ocultarDocs(msg.body), 80)}")`);
     return;
   }
   if (comando === '#pausa') {
@@ -577,8 +577,9 @@ client.on('message_create', async (msg) => {
     return;
   }
 
-  // Logo depois de encerrar, a despedida do atendente ("tenha um bom dia") não pausa o bot de novo
-  if (Date.now() - (encerradoEm.get(chatId) || 0) < JANELA_DESPEDIDA_MS) return;
+  // Logo depois de encerrar, só a despedida curta ("tenha um bom dia", 🙏) não pausa o bot de novo.
+  // Qualquer outra mensagem do atendente (continuou a conversa) tira o bot de cena.
+  if (Date.now() - (encerradoEm.get(chatId) || 0) < JANELA_DESPEDIDA_MS && u.ehDespedida(msg.body)) return;
   encerradoEm.delete(chatId);
 
   // Atendente respondeu manualmente: o bot sai de cena nessa conversa

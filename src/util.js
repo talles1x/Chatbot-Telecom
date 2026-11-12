@@ -117,12 +117,27 @@ const RE_FIM = new RegExp([
   '\\b(finaliz|encerr|conclu)\\w* (o |a )?(seu |este |esse |nosso )?atendimento',
   '\\b(agradece|obrigad)\\w* (o |pelo |a |seu |pelo seu )*contato',
 ].join('|'));
+// Sinais de que a conversa continua: pergunta, pedido de espera, próximo passo
+const RE_CONTINUA = /\?|\b(vou|vamos|irei|iremos|poderia|qual|quando|prazo)\b|\b(aguard|verific|precis)|\bpode me\b|\bme (envia|manda|passa)\b/;
 function ehEncerramento(t) {
-  return RE_FIM.test(normalizar(t));
+  const n = normalizar(t);
+  if (/^#(fim|finalizar|encerrar)$/.test(n)) return true;
+  if (!RE_FIM.test(n)) return false;
+  // "Obrigado pelo contato, vou verificar e já te retorno?" não encerra
+  if (RE_CONTINUA.test(n.replace(/\b(vou|vamos) (finalizar|encerrar|concluir)\w*/g, ''))) return false;
+  return true;
+}
+
+// Despedida curta do atendente logo depois de encerrar ("tenha um ótimo dia!", "🙏")
+function ehDespedida(t) {
+  const n = normalizar(t);
+  if (!/[a-z0-9]/.test(n)) return true; // só emoji/figurinha
+  return n.length <= 70 && !/\?/.test(n)
+    && /\b(bom dia|boa tarde|boa noite|tenha|otimo|excelente|obrigad|valeu|disponha|ate mais|ate logo|abraco|deus|fique com|por nada|tchau)\b/.test(n);
 }
 
 module.exports = {
-  ehEncerramento,
+  ehEncerramento, ehDespedida,
   agoraLocal, dentroDoHorario, paraISO, dataBR, diasDeAtraso, moeda,
   soDigitos, cpfValido, cnpjValido, esperar, aleatorio, normalizar, mesmoNumero, ehMensagemDoCliente,
 };
