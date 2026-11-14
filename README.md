@@ -31,7 +31,7 @@ O menu tem as opções **Boleto e liberação da internet** (2ª via e liberaç�
 Os números em `ATENDENTE_NUMEROS` ou em algum caixa de `CAIXAS` (por exemplo, o atendente de um ponto de recebimento) recebem um menu próprio:
 
 - **Fechar o caixa**: puxa do SGP os pagamentos do dia baixados pelos usuários daquele caixa e manda um **PDF** com o total, a quantidade, o total por forma de pagamento (dinheiro, PIX, cartão...) e a lista para conferência (hora, contrato, nome abreviado, forma de pagamento e valor), com o resumo na legenda. Cada caixa (`CAIXAS=Nome|usuários do SGP|números`) tem seus próprios usuários; quem cuida de mais de um caixa escolhe qual fechar.
-- **Avisar pré-cadastro**: pede o nome do cliente, o dia de vencimento e o plano, e registra o aviso para a equipe.
+- **Cadastrar cliente**: a equipe cola a ficha (nome, CPF, endereço com referência, telefone, vencimento e plano), o bot confere os dados (CPF válido, telefone com DDD, dia do vencimento), mostra o resumo para confirmar ou corrigir e cria o pré-cadastro no SGP (`PRECADASTRO_SGP=true`). Se o SGP recusar, mostra o motivo e avisa a equipe para cadastrar manualmente. Os ids de plano, vencimento, POP e portador saem do `diagnostico-precadastro.bat`.
 - **Falar com atendente**: passa a conversa para uma pessoa.
 
 ## Menu dos técnicos
