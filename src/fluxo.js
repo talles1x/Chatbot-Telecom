@@ -54,6 +54,75 @@ const MSG = {
 const RE_PROPAGANDA = /\b(black friday|promocao|promo|mega promo|desconto|oferta|ofertas|aproveite|cupom|liquidacao|frete gratis|so hoje|compre)\b|\d+ ?% ?(off|de desconto)/;
 const RE_PAGAMENTO = /\b(comprovante|paguei|pago|paga|pagamento|pix|transferencia|transferi|deposito|boleto|fatura|mensalidade)\b/;
 
+// ---------- Ficha de cadastro de cliente ----------
+const FICHA_MODELO = [
+  '📌 Nome completo:',
+  '📌 CPF:',
+  '📌 Endereço com ponto de referência:',
+  '📌 Telefone para contato:',
+  '📌 Data de vencimento desejada para o boleto:',
+  '📌 Plano:',
+].join('\n');
+// Cada campo pelo rótulo da linha ("Nome completo: ...")
+const CAMPOS_FICHA = [
+  ['nome', /\bnome\b/],
+  ['cpf', /\b(cpf|cnpj|documento)\b/],
+  ['referencia', /^(ponto de )?referencia\b/],
+  ['endereco', /\b(endereco|rua|localizacao|local)\b/],
+  ['telefone', /\b(telefone|fone|celular|contato|whatsapp|zap|numero)\b/],
+  ['vencimento', /\b(vencimento|vence|dia)\b/],
+  ['plano', /\b(plano|velocidade|mega|internet)\b/],
+];
+function lerFicha(texto) {
+  const lido = {};
+  for (const linha of String(texto || '').split(/\n/)) {
+    const m = linha.match(/^[^:]{2,60}?:\s*(.*)$/);
+    if (!m) continue;
+    const rotulo = u.normalizar(linha.slice(0, linha.indexOf(':'))).replace(/[^a-z ]/g, ' ').trim();
+    const valor = m[1].trim();
+    const campo = CAMPOS_FICHA.find(([, re]) => re.test(rotulo));
+    if (campo && valor && !lido[campo[0]]) lido[campo[0]] = valor.slice(0, 200);
+  }
+  return lido;
+}
+// Parece uma ficha: pelo menos `min` campos reconhecidos (para a ficha inteira, nome e CPF)
+function ehFicha(texto, min) {
+  const lido = lerFicha(texto);
+  return min ? Object.keys(lido).length >= min : Boolean(lido.nome && lido.cpf);
+}
+// O que falta ou está errado na ficha: { campo, msg } ou null
+function conferirFicha(pc) {
+  if (!pc.nome || pc.nome.trim().split(/\s+/).length < 2) return { campo: 'nome', msg: 'Qual o *nome completo* do cliente?' };
+  const doc = u.soDigitos(pc.cpf);
+  if (!((doc.length === 11 && u.cpfValido(doc)) || (doc.length === 14 && u.cnpjValido(doc)))) {
+    pc.cpf = '';
+    return { campo: 'cpf', msg: 'Esse *CPF* não está válido 🤔 Me manda o CPF (ou CNPJ) certinho.' };
+  }
+  pc.cpf = doc;
+  if (!pc.endereco || pc.endereco.length < 4) return { campo: 'endereco', msg: 'Qual o *endereço* (com ponto de referência)?' };
+  let tel = u.soDigitos(pc.telefone);
+  if (tel.length > 11 && tel.startsWith('55')) tel = tel.slice(2);
+  if (tel.length < 10 || tel.length > 11) { pc.telefone = ''; return { campo: 'telefone', msg: 'Qual o *telefone para contato* com DDD? (ex.: 83999999999)' }; }
+  pc.telefone = tel;
+  const dia = Number((String(pc.vencimento || '').match(/\d{1,2}/) || [])[0]);
+  if (!(dia >= 1 && dia <= 31)) { pc.vencimento = ''; return { campo: 'vencimento', msg: 'Qual o *dia do vencimento* do boleto? (ex.: *15*)' }; }
+  pc.vencimento = String(dia);
+  if (!pc.plano && !cfg.precadastro.planoId) return { campo: 'plano', msg: 'Qual o *plano*? (ex.: *300 MB*)' };
+  return null;
+}
+function resumoFicha(pc) {
+  const tel = pc.telefone.length === 11 ? pc.telefone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3') : pc.telefone.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+  return [
+    `👤 Nome: ${pc.nome}`,
+    `🪪 ${pc.cpf.length === 14 ? 'CNPJ' : 'CPF'}: ${u.formatarDoc(pc.cpf)}`,
+    `📍 Endereço: ${pc.endereco}`,
+    pc.referencia ? `🧭 Referência: ${pc.referencia}` : null,
+    `📞 Telefone: ${tel}`,
+    `📅 Vencimento: dia ${pc.vencimento}`,
+    pc.plano ? `📶 Plano: ${pc.plano}` : null,
+  ].filter(Boolean).join('\n');
+}
+
 // Opções clicáveis (no WhatsApp viram enquete). "valor" é o que o fluxo entende;
 // o cliente também pode digitar o número.
 // "Finalizar atendimento": aparece nos menus e também vale digitando "finalizar"/"encerrar" em qualquer etapa
@@ -131,7 +200,7 @@ const OP = {
   // Menu da equipe (números em ATENDENTE_NUMEROS)
   equipe: [
     { valor: 'c', texto: '💰 Fechar o caixa', chave: /\b(caixa|fechar|fechamento|relatorio|recebi(dos|mentos)?|pagamentos)\b/ },
-    { valor: 'p', texto: '📝 Avisar pré-cadastro', chave: /\b(pre ?-?cadastro|cadastro|cadastrei|cliente novo|novo cliente)\b/ },
+    { valor: 'p', texto: '📝 Cadastrar cliente', chave: /\b(pre ?-?cadastro|cadastr\w*|cliente novo|novo cliente)\b/ },
     { valor: 'a', texto: '👤 Falar com atendente', chave: /\b(atendente|falar|pessoa|humano|ajuda)\b/ },
   ],
 };
@@ -672,6 +741,8 @@ function criarFluxo({
     if (!s) {
       s = { etapa: 'equipe_menu', tentativas: 0, visto: Date.now() };
       sessoes.set(chatId, s);
+      // Colou a ficha de cadastro direto
+      if (!naoTexto && ehFicha(texto)) return iniciarCadastro(chatId, s, texto);
       // Já escreveu o que quer na primeira mensagem ("fechar o caixa")
       const num = u.normalizar(texto);
       const direto = !naoTexto && (/^\d$/.test(num) && OP.equipe[Number(num) - 1] ? OP.equipe[Number(num) - 1].valor : ent.casarOpcao(texto, OP.equipe));
@@ -682,6 +753,7 @@ function criarFluxo({
     if (s.etapa.startsWith('equipe_pc_')) return etapaPreCadastro(chatId, s, texto, naoTexto || audioFalhou);
     if (s.etapa === 'equipe_caixa') return etapaEscolherCaixa(chatId, s, texto);
     if (naoTexto || audioFalhou) return menuEquipe(chatId, 'Recebi. 👍 O que você precisa? 👇');
+    if (ehFicha(texto)) return iniciarCadastro(chatId, s, texto);
     let t = u.normalizar(texto);
     if (/^\d{1,2}$/.test(t) && OP.equipe[Number(t) - 1]) t = OP.equipe[Number(t) - 1].valor;
     else t = ent.casarOpcao(texto, OP.equipe) || t;
@@ -705,9 +777,9 @@ function criarFluxo({
       return menuEquipe(chatId, 'Precisa de mais alguma coisa? 👇');
     }
     if (t === 'p') {
-      s.etapa = 'equipe_pc_nome';
+      s.etapa = 'equipe_pc_ficha';
       s.preCadastro = {};
-      return enviar(chatId, 'Certo! Qual é o *nome do cliente* do pré-cadastro?\n\n_Para cancelar, digite *0*._');
+      return enviar(chatId, 'Certo! Me manda a ficha do cliente assim (pode copiar e preencher) 👇\n\n' + FICHA_MODELO + '\n\n_Para cancelar, digite *0*._');
     }
     if (t === 'a') {
       await enviar(chatId, 'Certo! Já avisei a equipe, em instantes alguém fala com você por aqui. 😊');
@@ -830,51 +902,101 @@ function criarFluxo({
     }
   }
 
-  // Pré-cadastro: pede nome, dia de vencimento e plano, um de cada vez
+  // ---------- Cadastro de cliente (ficha colada pela equipe) ----------
+  async function iniciarCadastro(chatId, s, texto) {
+    s.etapa = 'equipe_pc_ficha';
+    s.preCadastro = {};
+    return etapaPreCadastro(chatId, s, texto, false);
+  }
+
   async function etapaPreCadastro(chatId, s, texto, naoTexto) {
-    const t = u.normalizar(texto);
-    if (['0', 'cancelar', 'cancela', 'menu'].includes(t)) {
+    let t = u.normalizar(texto);
+    // Na confirmação, o número da lista (ou o texto da opção/voto da enquete) vira o valor da opção
+    if (s.etapa === 'equipe_pc_confirmar' && s.opcoes) {
+      if (/^\d$/.test(t) && s.opcoes[Number(t) - 1]) t = s.opcoes[Number(t) - 1].valor;
+      else t = (s.opcoes.find((o) => u.normalizar(o.texto) === t) || {}).valor || t;
+    }
+    if (['0', 'cancelar', 'cancela', 'menu', 'sair'].includes(t)) {
       s.etapa = 'equipe_menu';
       delete s.preCadastro;
       return menuEquipe(chatId, 'Certo, cancelei. O que você precisa? 👇');
     }
-    if (naoTexto || !String(texto || '').trim()) return enviar(chatId, 'Me responde por texto, por favor. 🙂');
+    if (naoTexto || !String(texto || '').trim()) return enviar(chatId, 'Me manda por texto, por favor. 🙂');
     const pc = (s.preCadastro = s.preCadastro || {});
-    const valor = String(texto).trim().slice(0, 200);
 
-    if (s.etapa === 'equipe_pc_nome') {
-      if (valor.length < 3) return enviar(chatId, 'Qual é o *nome completo* do cliente?');
-      pc.nome = valor;
-      s.etapa = 'equipe_pc_vencimento';
-      return enviar(chatId, 'Qual a *data de vencimento*? (o dia do mês, ex.: *10*)');
+    if (s.etapa === 'equipe_pc_confirmar') {
+      if (['1', 'sim', 's', 'confirmar', 'confirmo', 'ok', 'pode', 'cadastrar'].includes(t)) return cadastrarCliente(chatId, s);
+      if (['2', 'corrigir', 'corrige', 'alterar', 'editar'].includes(t)) {
+        s.etapa = 'equipe_pc_ficha';
+        return enviar(chatId, 'Me manda só o que quer corrigir, no mesmo formato. Ex.:\n\n📌 Telefone para contato: 83999999999\n\n_Para cancelar, digite *0*._');
+      }
+      // Mandou a correção direto, no formato da ficha
+      if (!ehFicha(texto, 1)) return enviar(chatId, 'Responda *1* para cadastrar, *2* para corrigir ou *0* para cancelar.');
     }
-    if (s.etapa === 'equipe_pc_vencimento') {
-      // Aceita "10", "dia 10", "10/11"...: guarda o dia; se não tiver número, guarda o texto
-      const dia = (t.match(/\b([0-2]?\d|3[01])\b/) || [])[1];
-      if (!dia && valor.length < 2) return enviar(chatId, 'Qual o *dia do vencimento*? (ex.: *10*)');
-      pc.vencimento = dia && /^(dia\s*)?\d{1,2}$/.test(t) ? `Dia ${Number(dia)}` : valor;
-      s.etapa = 'equipe_pc_plano';
-      return enviar(chatId, 'E qual o *plano*? (ex.: *300 MB*)');
+
+    // Junta o que veio (ficha inteira, só alguns campos, ou a resposta solta do campo que faltava)
+    const lido = lerFicha(texto);
+    if (Object.keys(lido).length) Object.assign(pc, lido);
+    else if (pc.faltando) pc[pc.faltando] = String(texto).trim().slice(0, 200);
+    else return enviar(chatId, 'Não reconheci a ficha 😅 Me manda neste formato 👇\n\n' + FICHA_MODELO);
+
+    const problema = conferirFicha(pc);
+    if (problema) {
+      pc.faltando = problema.campo;
+      s.etapa = 'equipe_pc_ficha';
+      return enviar(chatId, problema.msg);
     }
-    if (s.etapa === 'equipe_pc_plano') {
-      if (valor.length < 2) return enviar(chatId, 'Qual o *plano* do cliente? (ex.: *300 MB*)');
-      pc.plano = valor;
-      return finalizarPreCadastro(chatId, s);
-    }
+    delete pc.faltando;
+    s.etapa = 'equipe_pc_confirmar';
+    return perguntar(chatId, `Confere os dados 👇\n\n${resumoFicha(pc)}`, [
+      { valor: '1', texto: cfg.precadastro.ativo ? '✅ Confirmar e cadastrar no SGP' : '✅ Confirmar e avisar a equipe' },
+      { valor: '2', texto: '✏️ Corrigir' },
+      { valor: '0', texto: '❌ Cancelar' },
+    ]);
   }
 
-  async function finalizarPreCadastro(chatId, s) {
+  async function cadastrarCliente(chatId, s) {
     const pc = s.preCadastro || {};
     s.etapa = 'equipe_menu';
     delete s.preCadastro;
     const numero = await Promise.resolve(numeroDoChat(chatId)).catch(() => '');
-    const linhas = [`👤 Nome: ${pc.nome}`, `📅 Vencimento: ${pc.vencimento}`, `📶 Plano: ${pc.plano}`];
-    log(`[pré-cadastro] ${chatId}\n${linhas.join('\n')}`);
-    registrar(`[pré-cadastro] aviso recebido de ${chatId}`);
-    // O resumo fica nesta conversa (não lida, para a equipe ver) e vai também para o NUMERO_EQUIPE, se houver
-    await aoOcorrencia(chatId, ['📝 *Pré-cadastro feito (aviso da equipe)*', ...linhas, `Avisado por: ${numero || chatId}`].join('\n'), 'precadastro')
-      .catch((e) => log(`[erro ao avisar equipe] ${e.message}`));
-    await enviar(chatId, `Pré-cadastro avisado! ✅\n\n${linhas.join('\n')}`);
+    const resumo = resumoFicha(pc);
+    let resultado = null;
+    if (cfg.precadastro.ativo) {
+      const p = cfg.precadastro;
+      const dia = String(Number(pc.vencimento));
+      const venc = p.vencimentos.find(([d]) => String(Number(d)) === dia);
+      const plano = pc.plano && p.planos.find(([chave]) => u.normalizar(pc.plano).includes(u.normalizar(chave)));
+      await enviar(chatId, 'Cadastrando no SGP... ⏳');
+      resultado = await sgp.criarPreCadastro({
+        nome: pc.nome,
+        cpfcnpj: pc.cpf,
+        celular: pc.telefone,
+        endereco: pc.endereco,
+        referencia: pc.referencia,
+        vencimentoId: venc ? venc[1] : '',
+        planoId: plano ? plano[1] : p.planoId,
+        popId: p.popId,
+        portadorId: p.portadorId,
+        cidade: p.cidade,
+        uf: p.uf,
+        observacao: [`Cadastro feito pelo WhatsApp (bot) por ${numero || 'equipe'}.`, `Vencimento: dia ${dia}.`, pc.plano ? `Plano: ${pc.plano}.` : '']
+          .filter(Boolean).join(' '),
+      }).catch((e) => ({ ok: false, mensagem: e.message }));
+      registrar(`[cadastro] ${chatId}: ${resultado.ok ? `pré-cadastro criado no SGP${resultado.id ? ` (nº ${resultado.id})` : ''}` : `SGP recusou: ${resultado.mensagem}`}`);
+    } else {
+      registrar(`[cadastro] ${chatId}: ficha recebida (PRECADASTRO_SGP desligado, só avisa a equipe)`);
+    }
+
+    const titulo = !resultado ? '📝 *Cliente novo para cadastrar*'
+      : resultado.ok ? `📝 *Pré-cadastro criado no SGP*${resultado.id ? ` (nº ${resultado.id})` : ''}`
+        : '⚠️ *Cliente novo: o SGP não aceitou o cadastro automático, cadastre manualmente*';
+    await aoOcorrencia(chatId, [titulo, resumo, resultado && !resultado.ok && resultado.mensagem ? `Motivo: ${resultado.mensagem}` : '', `Enviado por: ${numero || chatId}`]
+      .filter(Boolean).join('\n'), 'precadastro').catch((e) => log(`[erro ao avisar equipe] ${e.message}`));
+
+    if (!resultado) await enviar(chatId, `Ficha recebida e equipe avisada! ✅\n\n${resumo}`);
+    else if (resultado.ok) await enviar(chatId, `Cliente cadastrado no SGP! ✅${resultado.id ? `\nPré-cadastro nº *${resultado.id}*` : ''}\n\n${resumo}`);
+    else await enviar(chatId, `Não consegui cadastrar no SGP 😕${resultado.mensagem ? `\nMotivo: ${resultado.mensagem}` : ''}\n\nJá avisei a equipe para cadastrar manualmente.`);
     return menuEquipe(chatId, 'Precisa de mais alguma coisa? 👇');
   }
 
