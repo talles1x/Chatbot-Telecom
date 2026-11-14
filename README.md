@@ -55,7 +55,7 @@ Em qualquer passo, *0* volta ao menu.
 
 ## Segurança e LGPD
 
-- **Identidade do titular**: nome, rua e ponto de referência só aparecem quando o WhatsApp é do titular (o número bate com um telefone do cadastro no SGP) ou quando a pessoa informa os 4 últimos dígitos de um telefone cadastrado. Sem isso, o atendimento segue mostrando só bairro e cidade.
+- **Identidade do titular**: nome, rua e ponto de referência só aparecem quando o WhatsApp é do titular (o número bate com um telefone do cadastro no SGP) ou quando a pessoa informa os 4 últimos dígitos de um telefone cadastrado ou o nome da rua/sítio do endereço. Sem isso, o atendimento segue mostrando só bairro e cidade.
 - O cliente vê só o necessário: nome abreviado (Maria S. S.) e endereço sem número, complemento e CEP. O CPF aparece mascarado nas mensagens, na janela e no log.
 - Um mesmo WhatsApp consulta até 3 CPFs/CNPJs diferentes por dia (`LIMITE_CPFS_DIA`).
 - Os dados completos ficam só no resumo interno enviado para a equipe.

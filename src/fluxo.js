@@ -26,9 +26,13 @@ const MSG = {
       completo && c.referencia ? `🧭 Referência: ${c.referencia}` : null,
       c.status ? `📌 Situação: ${c.status}` : null,
     ].filter(Boolean).join('\n'),
-  pedirVerificacao:
-    'Pra sua segurança 🔒, me manda os *4 últimos números do telefone* que está no seu cadastro com a gente.\n\n' +
-    '_Ex.: se o número é (83) 99999-1234, mande *1234*. Se não souber, digite *pular*._',
+  pedirVerificacao: (comRua) => comRua
+    ? 'Pra sua segurança 🔒, me responde *uma* destas:\n\n' +
+      '• os *4 últimos números do telefone* do seu cadastro (ex.: *1234*), ou\n' +
+      '• o *nome da rua ou do sítio* onde a internet está instalada.\n\n' +
+      '_Se não souber, digite *pular*._'
+    : 'Pra sua segurança 🔒, me manda os *4 últimos números do telefone* que está no seu cadastro com a gente.\n\n' +
+      '_Ex.: se o número é (83) 99999-1234, mande *1234*. Se não souber, digite *pular*._',
   semBoleto: () => 'Você não tem nenhum boleto em aberto. Está tudo em dia! 🎉',
   erroSistema: 'Não consegui consultar seu cadastro agora. 😕 Vou te passar para um atendente.',
   atendenteDentro: 'Certo! Já avisei nossa equipe e em instantes um atendente vai falar com você por aqui. 😊',
@@ -205,7 +209,7 @@ function criarFluxo({
   const TEXTO_LEMBRETE = {
     doc: 'É só me mandar o *CPF de quem está no nome do boleto* que eu continuo. 😊',
     contrato: 'É só responder com o número do contrato que eu continuo. 😊',
-    verificar: 'É só me mandar os *4 últimos números do telefone* do seu cadastro (ou digite *pular*) que eu continuo. 😊',
+    verificar: 'É só me mandar os *4 últimos números do telefone* ou o *nome da rua/sítio* do seu cadastro (ou digite *pular*) que eu continuo. 😊',
     confirmar_doc: 'É só responder com o número de uma das opções acima que eu continuo. 😊',
     suporte_desc: 'É só me contar o que está acontecendo (pode ser áudio) que eu registro seu chamado. 😊',
     venda_local: 'É só me dizer sua cidade e bairro que eu continuo seu cadastro. 😊',
@@ -1053,10 +1057,11 @@ function criarFluxo({
     // Segurança/LGPD: nome, rua e ponto de referência só aparecem se o WhatsApp for do titular.
     // Se o número não bater com o cadastro, pede os 4 últimos dígitos de um telefone cadastrado.
     s.verificado = await identidadeConfirmada(chatId, doc, contratos);
-    if (!s.verificado && telefonesDe(contratos).length) {
+    const comRua = ruasDe(contratos).length > 0;
+    if (!s.verificado && (telefonesDe(contratos).length || comRua)) {
       s.etapa = 'verificar';
       s.tentativasVerif = 0;
-      return enviar(chatId, MSG.pedirVerificacao);
+      return enviar(chatId, MSG.pedirVerificacao(comRua));
     }
     return mostrarContratos(chatId, s);
   }
@@ -1075,18 +1080,26 @@ function criarFluxo({
 
   async function etapaVerificar(chatId, s, t, texto) {
     if (/^(pular|pula|nao sei|nao lembro|nao tenho|nao tem|sei la)\b|^nao$/.test(t)) return seguirSemVerificar(chatId, s, 'Sem problema!');
+    const todos = s.contratosTodos || s.contratos;
     const digitos = u.soDigitos(texto);
-    if (digitos.length >= 4 && telefonesDe(s.contratosTodos || s.contratos).some((tel) => tel.endsWith(digitos.slice(-4)))) {
+    const comRua = ruasDe(todos).length > 0;
+    const telefoneOk = digitos.length >= 4 && telefonesDe(todos).some((tel) => tel.endsWith(digitos.slice(-4)));
+    const ruaOk = !telefoneOk && digitos.length < 4 && ruaConfere(texto, todos);
+    if (telefoneOk || ruaOk) {
       s.verificado = true;
       estado.lembrar(chatId, { verificadoDoc: s.doc });
+      log(`[lgpd] ${chatId}: identidade confirmada pelo ${telefoneOk ? 'telefone' : 'nome da rua'}`);
       await enviar(chatId, 'Confirmado! ✅');
       return mostrarContratos(chatId, s);
     }
-    // Texto sem números não conta como tentativa errada: só lembra o que precisa
-    if (!digitos.length) return enviar(chatId, 'Pra continuar, me manda só os *4 últimos números do telefone* que está no seu cadastro.\n\n_Se não souber, digite *pular*._');
+    // Sem rua no cadastro, texto sem números não conta como tentativa errada: só lembra o que precisa
+    if (!digitos.length && !comRua) return enviar(chatId, 'Pra continuar, me manda só os *4 últimos números do telefone* que está no seu cadastro.\n\n_Se não souber, digite *pular*._');
     s.tentativasVerif = (s.tentativasVerif || 0) + 1;
-    if (s.tentativasVerif >= 2) return seguirSemVerificar(chatId, s, 'Esses números não batem com o telefone do seu cadastro.');
-    return enviar(chatId, 'Esses números não batem com o telefone do seu cadastro 🤔 Tenta de novo, ou digite *pular*.');
+    const naoBate = comRua ? 'Não bateu com o seu cadastro' : 'Esses números não batem com o telefone do seu cadastro';
+    if (s.tentativasVerif >= 2) return seguirSemVerificar(chatId, s, `${naoBate}.`);
+    return enviar(chatId, comRua
+      ? `${naoBate} 🤔 Tenta de novo com os *4 últimos números do telefone* ou o *nome da rua/sítio*, ou digite *pular*.`
+      : `${naoBate} 🤔 Tenta de novo, ou digite *pular*.`);
   }
 
   // Segue o atendimento (boleto, suporte...) sem mostrar nome, rua e referência
@@ -1523,6 +1536,25 @@ function nomeLGPD(n) {
   const partes = nomeBonito(n).split(' ').filter((p) => p && !['da', 'de', 'do', 'das', 'dos', 'e'].includes(p));
   if (!partes.length) return '';
   return [partes[0], ...partes.slice(1).map((p) => `${p.charAt(0)}.`)].join(' ');
+}
+
+// Rua (ou sítio) de cada contrato: a parte do endereço antes do bairro, sem o número.
+// "Rua José Pereira, 120 - Centro - Ingá/PB" -> palavras ["jose", "pereira"]
+const PALAVRAS_RUA_IGNORAR = new Set(['rua', 'r', 'avenida', 'av', 'travessa', 'tv', 'trav', 'rodovia', 'rod', 'sitio', 'fazenda', 'faz', 'estrada', 'est', 'povoado', 'distrito', 'conjunto', 'loteamento', 'vila', 'beco', 'alameda', 'praca', 'zona', 'rural', 'de', 'da', 'do', 'das', 'dos', 'e', 'sn', 's', 'n', 'numero', 'km']);
+function palavrasRua(texto) {
+  return u.normalizar(texto).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/)
+    .filter((p) => p.length >= 3 && !/^\d+$/.test(p) && !PALAVRAS_RUA_IGNORAR.has(p));
+}
+function ruasDe(contratos) {
+  return (contratos || [])
+    .map((c) => palavrasRua(String(c.endereco || '').split(' - ')[0].split(',')[0]))
+    .filter((p) => p.length);
+}
+// Confere se a resposta bate com a rua de algum contrato (basta 2 palavras, ou a única que a rua tiver)
+function ruaConfere(resposta, contratos) {
+  const disse = new Set(palavrasRua(resposta));
+  if (!disse.size) return false;
+  return ruasDe(contratos).some((rua) => rua.filter((p) => disse.has(p)).length >= Math.min(2, rua.length));
 }
 
 // Telefones de todos os contratos do CPF (só dígitos)
