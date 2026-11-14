@@ -32,7 +32,14 @@ async function post(caminho, dados) {
   const res = await fetch(url, opcoes);
   const texto = await res.text();
   if (cfg.debug) console.log(`[SGP] ${caminho} -> HTTP ${res.status}\n${texto.slice(0, 2000)}\n`);
-  if (!res.ok) throw new Error(`SGP ${caminho} respondeu HTTP ${res.status}`);
+  if (!res.ok) {
+    // Junta a mensagem do SGP (ex.: "CPF já cadastrado") para quem usa saber o motivo
+    let motivo = '';
+    try { motivo = String(primeiro(JSON.parse(texto), ['msg', 'mensagem', 'message', 'erro', 'error', 'detail']) || ''); } catch {}
+    const e = new Error(`SGP ${caminho} respondeu HTTP ${res.status}${motivo ? `: ${motivo}` : ''}`);
+    e.motivo = motivo;
+    throw e;
+  }
   try {
     return JSON.parse(texto);
   } catch {
@@ -229,6 +236,41 @@ async function criarChamado(contrato, conteudo, { contatoNome, contatoTelefone }
   };
 }
 
+// ---------- Pré-cadastro de cliente novo ----------
+// d = { nome, cpfcnpj (só dígitos), celular, endereco, referencia, vencimentoId, planoId, popId, portadorId, cidade, uf, observacao }
+// Retorna { ok, id, mensagem }
+async function criarPreCadastro(d) {
+  if (cfg.sgp.mock) return { ok: true, id: '9001', mensagem: '' };
+  const tipo = d.cpfcnpj.length === 14 ? 'J' : 'F';
+  const corpo = {
+    nome: d.nome,
+    cpfcnpj: u.formatarDoc(d.cpfcnpj),
+    celular: d.celular,
+    logradouro: d.endereco,
+    pontoreferencia: d.referencia,
+    cidade: d.cidade,
+    uf: d.uf,
+    pais: 'BR',
+    plano_id: d.planoId,
+    vencimento_id: d.vencimentoId,
+    pop_id: d.popId,
+    portador_id: d.portadorId,
+    observacao: d.observacao,
+  };
+  for (const k of Object.keys(corpo)) if (corpo[k] === undefined || corpo[k] === null || corpo[k] === '') delete corpo[k];
+  let r;
+  try {
+    r = await post(`/api/precadastro/${tipo}`, corpo);
+  } catch (e) {
+    return { ok: false, id: null, mensagem: e.motivo || e.message };
+  }
+  const status = primeiro(r, ['status', 'sucesso', 'success']);
+  const id = primeiro(r, ['precadastro_id', 'precadastroId', 'cliente_id', 'id']);
+  const mensagem = String(primeiro(r, ['msg', 'mensagem', 'message', 'erro']) || '');
+  const recusou = status === 0 || status === '0' || status === false || /erro|invalid|obrigat/i.test(String(status));
+  return { ok: !recusou && (Boolean(id) || status === 1 || status === '1' || status === true), id: id ? String(id) : null, mensagem };
+}
+
 // ---------- Promessa de pagamento ----------
 async function liberarPromessa(contrato) {
   if (cfg.sgp.mock) return mock.liberarPromessa(contrato);
@@ -308,4 +350,4 @@ const mock = {
   },
 };
 
-module.exports = { consultarCliente, consultarContrato, titulosAbertos, titulosPagos, criarChamado, liberarPromessa, verificarAcesso };
+module.exports = { consultarCliente, consultarContrato, titulosAbertos, titulosPagos, criarChamado, criarPreCadastro, liberarPromessa, verificarAcesso };

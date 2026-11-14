@@ -9,6 +9,11 @@ const lista = (v) =>
     .map((s) => s.replace(/\D/g, ''))
     .filter(Boolean);
 
+// "a=1,b=2" -> [['a','1'],['b','2']]
+function pares(t) {
+  return String(t || '').split(',').map((p) => p.split('=').map((x) => x.trim())).filter(([a, b]) => a && b);
+}
+
 function lerCaixas() {
   const separar = (t) => String(t || '').split(',').map((x) => x.trim()).filter(Boolean);
   if ((process.env.CAIXAS || '').trim()) {
@@ -65,6 +70,20 @@ module.exports = {
   // Ex.: CAIXAS=Centro|joao|5583999999999;Loja 2|maria,ana|5583999999999,5583888888888
   // Sem CAIXAS, vale o formato antigo: um caixa (CAIXA_NOME + CAIXA_USUARIOS_SGP) para os ATENDENTE_NUMEROS.
   caixas: lerCaixas(),
+  // Cadastro de cliente pelo menu da equipe: com PRECADASTRO_SGP=true o bot cria o pré-cadastro no SGP
+  // (rota /api/precadastro/F ou J). Os ids vêm do SGP (rode diagnostico-precadastro.bat para ver).
+  precadastro: {
+    ativo: /^(1|true|sim)$/i.test(process.env.PRECADASTRO_SGP || ''),
+    planoId: (process.env.PRECADASTRO_PLANO_ID || '').trim(),
+    // Plano pelo que foi escrito na ficha: PRECADASTRO_PLANOS=300=12,500=13 (texto contém "300" -> id 12)
+    planos: pares(process.env.PRECADASTRO_PLANOS),
+    // Dia de vencimento -> id do vencimento no SGP: PRECADASTRO_VENCIMENTOS=5=1,10=2,15=3
+    vencimentos: pares(process.env.PRECADASTRO_VENCIMENTOS),
+    popId: (process.env.PRECADASTRO_POP_ID || '').trim(),
+    portadorId: (process.env.PRECADASTRO_PORTADOR_ID || '').trim(),
+    cidade: (process.env.PRECADASTRO_CIDADE || '').trim(),
+    uf: (process.env.PRECADASTRO_UF || '').trim(),
+  },
   horario: {
     dias: (process.env.HORARIO_DIAS || '1,2,3,4,5,6').split(',').map(Number),
     turnos: lerTurnos(process.env.HORARIO_TURNOS || '08:00-12:00,13:00-17:00'),

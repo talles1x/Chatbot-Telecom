@@ -63,6 +63,14 @@ function soDigitos(t) {
   return String(t || '').replace(/\D/g, '');
 }
 
+// CPF/CNPJ com pontuação: 12345678909 -> 123.456.789-09
+function formatarDoc(d) {
+  d = soDigitos(d);
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  return d;
+}
+
 function cpfValido(cpf) {
   if (!/^\d{11}$/.test(cpf) || /^(\d)\1+$/.test(cpf)) return false;
   const calc = (n) => {
@@ -139,5 +147,5 @@ function ehDespedida(t) {
 module.exports = {
   ehEncerramento, ehDespedida,
   agoraLocal, dentroDoHorario, paraISO, dataBR, diasDeAtraso, moeda,
-  soDigitos, cpfValido, cnpjValido, esperar, aleatorio, normalizar, mesmoNumero, ehMensagemDoCliente,
+  soDigitos, formatarDoc, cpfValido, cnpjValido, esperar, aleatorio, normalizar, mesmoNumero, ehMensagemDoCliente,
 };
