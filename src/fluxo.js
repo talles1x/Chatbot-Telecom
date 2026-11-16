@@ -752,6 +752,7 @@ function criarFluxo({
     s.visto = Date.now();
     if (s.etapa.startsWith('equipe_pc_')) return etapaPreCadastro(chatId, s, texto, naoTexto || audioFalhou);
     if (s.etapa === 'equipe_caixa') return etapaEscolherCaixa(chatId, s, texto);
+    if (s.etapa === 'equipe_caixa_sel') return etapaSelecionarPagamentos(chatId, s, texto);
     if (naoTexto || audioFalhou) return menuEquipe(chatId, 'Recebi. 👍 O que você precisa? 👇');
     if (ehFicha(texto)) return iniciarCadastro(chatId, s, texto);
     let t = u.normalizar(texto);
@@ -773,7 +774,7 @@ function criarFluxo({
           { valor: '0', texto: '↩️ Voltar' },
         ]);
       }
-      await fecharCaixa(chatId, caixas[0]);
+      if (await fecharCaixa(chatId, caixas[0]) === 'selecionar') return;
       return menuEquipe(chatId, 'Precisa de mais alguma coisa? 👇');
     }
     if (t === 'p') {
@@ -800,7 +801,7 @@ function criarFluxo({
     if (!c) c = caixas.find((x) => x.nome && (t.includes(u.normalizar(x.nome)) || u.normalizar(x.nome).includes(t)) && t.length >= 3);
     if (!c) return enviar(chatId, `Não entendi 😅 Responda com o número do caixa, ou *${caixas.length + 1}* para voltar.`);
     s.etapa = 'equipe_menu';
-    await fecharCaixa(chatId, c);
+    if (await fecharCaixa(chatId, c) === 'selecionar') return;
     return menuEquipe(chatId, 'Precisa de mais alguma coisa? 👇');
   }
 
@@ -814,7 +815,47 @@ function criarFluxo({
     return '▫️';
   }
 
-  async function fecharCaixa(chatId, caixa) {
+  // Caixa que divide usuário do SGP com outro caixa: o SGP não diz em qual ponto foi a baixa,
+  // então quem fecha diz quais pagamentos da lista são desse caixa
+  function caixaCompartilhado(caixa) {
+    return cfg.caixas.some((c) => c !== caixa && c.usuarios.some((x) => (caixa.usuarios || []).includes(x)));
+  }
+
+  // Lê "1, 3, 5", "1-4", "1 2 3" ou "todos" -> índices (base 0) ou null se não entendeu
+  function lerSelecao(texto, total) {
+    const t = u.normalizar(texto);
+    if (/^(todos|todas|tudo)$/.test(t)) return [...Array(total).keys()];
+    if (!/^[\d\s,;e\-a]+$/.test(t) || !/\d/.test(t)) return null;
+    const escolhidos = new Set();
+    for (const parte of t.split(/[\s,;]+|\be\b/).filter(Boolean)) {
+      const m = parte.match(/^(\d+)(?:-|a)(\d+)$/);
+      const [ini, fim] = m ? [Number(m[1]), Number(m[2])] : [Number(parte), Number(parte)];
+      if (!ini || !fim) continue;
+      for (let i = Math.min(ini, fim); i <= Math.max(ini, fim); i++) if (i >= 1 && i <= total) escolhidos.add(i - 1);
+    }
+    return escolhidos.size ? [...escolhidos].sort((a, b) => a - b) : null;
+  }
+
+  async function etapaSelecionarPagamentos(chatId, s, texto) {
+    const sel = s.caixaSel || {};
+    const t = u.normalizar(texto);
+    if (['0', 'cancelar', 'voltar', 'menu', 'sair'].includes(t)) {
+      s.etapa = 'equipe_menu';
+      delete s.caixaSel;
+      return menuEquipe(chatId, 'Certo, cancelei o fechamento. O que você precisa? 👇');
+    }
+    const idx = lerSelecao(texto, (sel.ids || []).length);
+    if (!idx) return enviar(chatId, 'Não entendi 😅 Mande os *números* dos pagamentos deste caixa (ex.: *1, 3, 5* ou *1-4*), *todos*, ou *0* para cancelar.');
+    const caixa = cfg.caixas.find((c) => c.nome === sel.nome);
+    s.etapa = 'equipe_menu';
+    delete s.caixaSel;
+    if (!caixa) return menuEquipe(chatId, 'Esse caixa não está mais configurado. 😕 O que você precisa? 👇');
+    await fecharCaixa(chatId, caixa, idx.map((i) => sel.ids[i]));
+    return menuEquipe(chatId, 'Precisa de mais alguma coisa? 👇');
+  }
+
+  // selecionados: ids das faturas escolhidas (caixa compartilhado). Retorna 'selecionar' quando ficou esperando a escolha.
+  async function fecharCaixa(chatId, caixa, selecionados = null) {
     const usuarios = (caixa && caixa.usuarios) || [];
     const nomeCaixa = (caixa && caixa.nome) || '';
     // Sem usuário configurado, não mostra nada (senão sairiam os pagamentos da empresa inteira)
@@ -830,9 +871,22 @@ function criarFluxo({
       log(`[caixa] erro ao consultar o SGP: ${e.message}`);
       return enviar(chatId, 'Não consegui puxar os pagamentos do SGP agora. 😕 Tente de novo em alguns minutos ou confira o relatório direto no SGP.');
     }
-    const meus = pagos
+    let meus = pagos
       .filter((p) => usuarios.includes(p.usuario.toLowerCase()))
-      .sort((a, b) => a.data.localeCompare(b.data)); // em ordem de horário
+      .sort((a, b) => a.data.localeCompare(b.data) || String(a.id).localeCompare(String(b.id))); // em ordem de horário
+    if (selecionados) {
+      meus = meus.filter((p) => selecionados.map(String).includes(String(p.id)));
+    } else if (meus.length && caixaCompartilhado(caixa)) {
+      // Mostra a lista para quem fecha dizer quais pagamentos são deste caixa
+      const s = sessoes.get(chatId);
+      s.etapa = 'equipe_caixa_sel';
+      s.caixaSel = { nome: caixa.nome, ids: meus.map((p) => p.id) };
+      const lista = meus.map((p, i) => `*${i + 1}* - ${nomeLGPD(p.cliente) || 'Cliente'}${p.contrato ? ` (contrato ${p.contrato})` : ''} - ${u.moeda(p.valor)}${p.forma ? ` - ${p.forma}` : ''}`);
+      registrar(`[caixa] ${chatId}: ${meus.length} pagamento(s) para escolher (${nomeCaixa})`);
+      await enviar(chatId, `💰 *Fechamento - ${nomeCaixa}*\n\nPagamentos de hoje (${usuarios.join(', ')}):\n\n${lista.join('\n')}`);
+      await enviar(chatId, `Quais desses são do *${nomeCaixa}*? 👇\nMande os números (ex.: *1, 3, 5* ou *1-4*), *todos*, ou *0* para cancelar.`);
+      return 'selecionar';
+    }
     const total = meus.reduce((soma, p) => soma + p.valor, 0);
     const hora = new Date().toLocaleTimeString('pt-BR', { timeZone: cfg.fuso, hour: '2-digit', minute: '2-digit' });
     const titulo = `💰 *Fechamento de caixa${nomeCaixa ? ` - ${nomeCaixa}` : ''}*`;
