@@ -881,7 +881,7 @@ function criarFluxo({
       const s = sessoes.get(chatId);
       s.etapa = 'equipe_caixa_sel';
       s.caixaSel = { nome: caixa.nome, ids: meus.map((p) => p.id) };
-      const lista = meus.map((p, i) => `*${i + 1}* - ${nomeLGPD(p.cliente) || 'Cliente'}${p.contrato ? ` (contrato ${p.contrato})` : ''} - ${u.moeda(p.valor)}${p.forma ? ` - ${p.forma}` : ''}`);
+      const lista = meus.map((p, i) => `*${i + 1}* - ${nomeBonito(p.cliente) || 'Cliente'}${p.contrato ? ` (contrato ${p.contrato})` : ''} - ${u.moeda(p.valor)}${p.forma ? ` - ${p.forma}` : ''}`);
       registrar(`[caixa] ${chatId}: ${meus.length} pagamento(s) para escolher (${nomeCaixa})`);
       await enviar(chatId, `💰 *Fechamento - ${nomeCaixa}*\n\nPagamentos de hoje (${usuarios.join(', ')}):\n\n${lista.join('\n')}`);
       await enviar(chatId, `Quais desses são do *${nomeCaixa}*? 👇\nMande os números (ex.: *1, 3, 5* ou *1-4*), *todos*, ou *0* para cancelar.`);
@@ -929,7 +929,7 @@ function criarFluxo({
         data: u.dataBR(hoje),
         hora,
         usuarios,
-        pagamentos: meus.map((p) => ({ hora: horaDe(p), contrato: p.contrato, cliente: nomeLGPD(p.cliente), forma: p.forma, valor: p.valor })),
+        pagamentos: meus.map((p) => ({ hora: horaDe(p), contrato: p.contrato, cliente: nomeBonito(p.cliente), cpf: p.cpf ? u.formatarDoc(p.cpf) : '', forma: p.forma, valor: p.valor })),
         total,
         porForma,
         porPortador: porPortador.length > 1 ? porPortador : [],
@@ -949,7 +949,7 @@ function criarFluxo({
     // Lista para conferência (até 60 por mensagem)
     const linhas = meus.map((p, i) => {
       const h = horaDe(p);
-      return `${i + 1}. ${p.contrato ? `Contrato ${p.contrato} - ` : ''}${nomeLGPD(p.cliente) || 'Cliente'} - ${u.moeda(p.valor)}${p.forma ? ` - ${p.forma}` : ''}${h ? ` (${h})` : ''}`;
+      return `${i + 1}. ${p.contrato ? `Contrato ${p.contrato} - ` : ''}${nomeBonito(p.cliente) || 'Cliente'}${p.cpf ? ` (CPF ${u.formatarDoc(p.cpf)})` : ''} - ${u.moeda(p.valor)}${p.forma ? ` - ${p.forma}` : ''}${h ? ` (${h})` : ''}`;
     });
     for (let i = 0; i < linhas.length; i += 60) {
       await enviar(chatId, `${i === 0 ? '*Lista de pagamentos:*\n' : ''}${linhas.slice(i, i + 60).join('\n')}`);

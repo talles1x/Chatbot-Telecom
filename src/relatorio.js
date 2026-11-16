@@ -5,7 +5,7 @@ const u = require('./util');
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// f = { empresa, local, data (dd/mm/aaaa), hora, usuarios[], pagamentos[{hora, contrato, cliente, forma, valor}], total,
+// f = { empresa, local, data (dd/mm/aaaa), hora, usuarios[], pagamentos[{hora, contrato, cliente (nome completo), cpf, forma, valor}], total,
 //       porForma[{nome, n, v}], porPortador[{nome, n, v}] (vazio = não mostra), geradoEm }
 function htmlFechamento(f) {
   const linhasHtml = f.pagamentos.map((p, i) => `
@@ -14,6 +14,7 @@ function htmlFechamento(f) {
           <td>${esc(p.hora || '-')}</td>
           <td>${esc(p.contrato || '-')}</td>
           <td>${esc(p.cliente || 'Cliente')}</td>
+          <td class="doc">${esc(p.cpf || '-')}</td>
           <td>${esc(p.forma || '-')}</td>
           <td class="v">${esc(u.moeda(p.valor))}</td>
         </tr>`);
@@ -59,6 +60,7 @@ function htmlFechamento(f) {
   tfoot .total td { font-weight: bold; border-top: 2px solid #1d2433; border-bottom: none; padding-top: 8px; }
   tfoot .rodape td { border: none; color: #8a92a3; font-size: 9px; text-align: center; padding-top: 14px; }
   .port { width: 60%; }
+  .doc { white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -80,12 +82,12 @@ ${tabela('Por portador', f.porPortador)}
 
   <h2>Lista de pagamentos</h2>
   <table>
-    <thead><tr><th class="n">#</th><th>Hora</th><th>Contrato</th><th>Cliente</th><th>Forma</th><th class="v">Valor</th></tr></thead>
+    <thead><tr><th class="n">#</th><th>Hora</th><th>Contrato</th><th>Cliente</th><th>CPF/CNPJ</th><th>Forma</th><th class="v">Valor</th></tr></thead>
     <tbody>${corpo}
     </tbody>
     <tfoot>${fim}
-      <tr class="total"><td colspan="5">Total (${f.pagamentos.length} pagamento${f.pagamentos.length === 1 ? '' : 's'})</td><td class="v">${esc(u.moeda(f.total))}</td></tr>
-      <tr class="rodape"><td colspan="6">Gerado automaticamente pelo bot em ${esc(f.geradoEm)}. Confira com o relatório do SGP antes de fechar o caixa.</td></tr>
+      <tr class="total"><td colspan="6">Total (${f.pagamentos.length} pagamento${f.pagamentos.length === 1 ? '' : 's'})</td><td class="v">${esc(u.moeda(f.total))}</td></tr>
+      <tr class="rodape"><td colspan="7">Gerado automaticamente pelo bot em ${esc(f.geradoEm)}. Confira com o relatório do SGP antes de fechar o caixa.</td></tr>
     </tfoot>
   </table>
 </body>

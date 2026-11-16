@@ -211,6 +211,7 @@ async function titulosPagos(dataISO) {
   return todos.map((t) => ({
     id: primeiro(t, ['id', 'titulo', 'tituloId']),
     cliente: primeiro(t, ['clienteNome', 'cliente', 'nome']) || '',
+    cpf: u.soDigitos(primeiro(t, ['clienteCpfcnpj', 'cpfcnpj', 'cpf_cnpj'])),
     contrato: primeiro(t, ['clienteContrato', 'contrato']),
     valor: Number(String(primeiro(t, ['valorPago', 'valor_pago', 'valorCorrigido', 'valor']) ?? 0).replace(',', '.')) || 0,
     data: String(primeiro(t, ['dataPagamento', 'data_pagamento']) || ''),
