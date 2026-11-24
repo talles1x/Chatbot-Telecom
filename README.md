@@ -41,6 +41,7 @@ Os números em `TECNICO_NUMEROS` recebem outro menu, com o técnico cumprimentad
 - **Consultar cliente**: pelo ID do SGP (número do contrato) ou CPF/CNPJ, mostra nome completo, endereço com número, ponto de referência, plano, telefones e se a conexão está online.
 - **Ver se está online**: mostra 🟢 online / 🔴 offline de cada contrato do cliente.
 - **Criar ocorrência**: pede o ID do SGP ou o CPF e a descrição, abre o chamado direto no SGP e responde com o protocolo.
+- **Ocorrência pela foto da ficha**: o técnico manda o print da ficha do cliente (do app do SGP) e o bot lê a imagem no próprio computador (OCR com `tesseract.js`), acha o cliente no SGP conferindo o nome com cada número da ficha (ou pelo CPF), mostra a ficha e pede a descrição por texto ou áudio para abrir a ocorrência. Um áudio só com "abre essa OS aí" não vira descrição: o bot pergunta qual é o problema.
 - **Falar com atendente**: passa a conversa para uma pessoa.
 
 Em qualquer passo, *0* volta ao menu.
@@ -68,7 +69,7 @@ O bot mostra "digitando…" com tempo variável antes de cada resposta, responde
 
 ## Tecnologias
 
-Node.js, [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js) (conexão por QR code), API URA do SGP, Whisper local via `@huggingface/transformers` (transcrição de áudio), `ffmpeg-static` (conversão de áudio) e o navegador do próprio WhatsApp Web para gerar os PDFs.
+Node.js, [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js) (conexão por QR code), API URA do SGP, Whisper local via `@huggingface/transformers` (transcrição de áudio), `tesseract.js` (leitura de imagens), `ffmpeg-static` (conversão de áudio) e o navegador do próprio WhatsApp Web para gerar os PDFs.
 
 ## Instalar
 

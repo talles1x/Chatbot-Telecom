@@ -14,6 +14,7 @@ const { criarEstado } = require('./estado');
 const { registrar, resumo } = require('./log');
 const estado = criarEstado();
 const audio = cfg.audio.ativo ? require('./audio') : null;
+const ocr = require('./ocr');
 
 const client = new Client({
   authStrategy: new LocalAuth({ dataPath: path.join(__dirname, '..', '.sessao') }),
@@ -458,7 +459,14 @@ client.on('message', async (msg) => {
         if (!audio) registrar(`[áudio] ${numeroDe(chatId)}: transcrição desligada (TRANSCREVER_AUDIO=false no .env)`);
         return fluxo.receber(chatId, '', { audioFalhou: true });
       }
-      await fluxo.receber(chatId, msg.body, { naoTexto, tipo: msg.type, encaminhada: !!(msg.isForwarded || msg.forwardingScore) });
+      // Imagem: o fluxo pode pedir para ler o texto dela (ficha do cliente mandada pelo técnico)
+      const lerImagem = msg.type === 'image'
+        ? async () => {
+          const m = await baixarMidia(msg);
+          return m && m.data ? ocr.lerTexto(Buffer.from(m.data, 'base64'), registrar) : null;
+        }
+        : null;
+      await fluxo.receber(chatId, msg.body, { naoTexto, tipo: msg.type, encaminhada: !!(msg.isForwarded || msg.forwardingScore), lerImagem });
     });
   } catch (e) {
     console.error('[erro ao receber]', e.message);

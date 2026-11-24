@@ -4,6 +4,7 @@
 // Assim o mesmo fluxo roda no WhatsApp (index.js) e no simulador (simulador.js).
 const cfg = require('./config');
 const sgp = require('./sgp');
+const ocr = require('./ocr');
 const u = require('./util');
 const { criarEstado } = require('./estado');
 const ent = require('./entender');
@@ -367,12 +368,12 @@ function criarFluxo({
     registrar(`[etapa] ${chatId} | ${etapaAntes} → ${estaPausado(chatId) ? 'COM O ATENDENTE (bot pausado)' : depois ? depois.etapa : '(conversa encerrada)'}`);
   }
 
-  async function receberInterno(chatId, texto, { naoTexto = false, audio = false, audioFalhou = false, tipo = '', encaminhada = false } = {}) {
+  async function receberInterno(chatId, texto, { naoTexto = false, audio = false, audioFalhou = false, tipo = '', encaminhada = false, lerImagem = null } = {}) {
     let s = sessoes.get(chatId);
     const expirou = s && Date.now() - s.visto > cfg.sessaoMin * 60000;
 
     // Técnico: menu próprio (consultar cliente, online, ocorrência, atendente)
-    if (await ehTecnico(chatId)) return receberTecnico(chatId, s && !expirou ? s : null, texto, { naoTexto, audioFalhou });
+    if (await ehTecnico(chatId)) return receberTecnico(chatId, s && !expirou ? s : null, texto, { naoTexto, audioFalhou, tipo, lerImagem });
     // Número da equipe: menu próprio (fechar caixa, pré-cadastro, atendente), nunca o de cliente
     if (await ehEquipe(chatId)) return receberEquipe(chatId, s && !expirou ? s : null, texto, { naoTexto, audioFalhou });
 
@@ -558,8 +559,14 @@ function criarFluxo({
   };
   const PEDIR_CLIENTE = 'Me manda o *ID do SGP* do cliente (ou o CPF/CNPJ).\n\n_Para voltar ao menu, digite *0*._';
 
-  async function receberTecnico(chatId, s, texto, { naoTexto, audioFalhou }) {
+  async function receberTecnico(chatId, s, texto, { naoTexto, audioFalhou, tipo, lerImagem }) {
     const t = u.normalizar(texto);
+    // Print/foto da ficha do cliente: lê a imagem, acha o cliente no SGP e já pede a descrição da ocorrência
+    if (naoTexto && tipo === 'image' && lerImagem) {
+      if (!s) { s = { etapa: 'tec_menu', tentativas: 0, visto: Date.now() }; sessoes.set(chatId, s); }
+      s.visto = Date.now();
+      return tecFichaPorImagem(chatId, s, lerImagem);
+    }
     if (!s) {
       s = { etapa: 'tec_menu', tentativas: 0, visto: Date.now() };
       sessoes.set(chatId, s);
@@ -572,7 +579,9 @@ function criarFluxo({
       return menuTecnico(chatId, 'Certo. O que você precisa? 👇');
     }
     if (s.etapa === 'tec_oc_desc') {
-      if (naoTexto || audioFalhou) return enviar(chatId, 'Me descreve o problema ou o serviço *por texto*, por favor. 🙂');
+      if (naoTexto || audioFalhou) return enviar(chatId, 'Me descreve o problema ou o serviço *por texto* ou *áudio*, por favor. 🙂');
+      // Só "abre essa OS aí" não diz o problema: pede a descrição
+      if (soPedidoDeAbrir(texto)) return enviar(chatId, `Certo, vou abrir no ID *${(s.tecOcorrencia || {}).contrato}*. 👍 Qual é o *problema ou serviço*? (texto ou áudio)`);
       return criarOcorrenciaTecnico(chatId, s, String(texto).trim());
     }
     if (naoTexto || audioFalhou) return menuTecnico(chatId, 'Recebi. 👍 O que você precisa? 👇');
@@ -679,6 +688,47 @@ function criarFluxo({
     s.tecContratos = ordenarContratos(lista).slice(0, 10).map((c) => ({ id: c.id, nome: c.nome, endereco: c.endereco, status: c.status }));
     return enviar(chatId, 'Esse CPF tem mais de um contrato. Qual deles?\n\n' +
       s.tecContratos.map((c, i) => `*${i + 1}* - ID ${c.id}${c.endereco ? ` · ${enderecoLGPD(c.endereco)}` : ''}${c.status && !/^ativo$/i.test(c.status) ? ` · ${c.status}` : ''}`).join('\n'));
+  }
+
+  // Lê a ficha do cliente na imagem e procura no SGP: CPF, ou cada número conferindo o nome
+  async function tecFichaPorImagem(chatId, s, lerImagem) {
+    await enviar(chatId, '🔎 Lendo a imagem...');
+    const texto = await lerImagem().catch(() => null);
+    const pedirId = (msg) => {
+      s.etapa = 'tec_oc_contrato';
+      delete s.tecContratos;
+      return enviar(chatId, `${msg}\n${PEDIR_CLIENTE}`);
+    };
+    if (texto === null) return pedirId('Não consegui ler a imagem por aqui. 😕');
+    const { nome, numeros, doc } = ocr.dadosDaFicha(texto);
+    registrar(`[técnico] imagem lida: nome "${nomeLGPD(nome)}", ${numeros.length} número(s)${doc ? ', com CPF/CNPJ' : ''}`);
+    const bate = (c) => !nome || nomesParecidos(c.nome, nome);
+    let achado = null;
+    try {
+      if (doc && ((doc.length === 11 && u.cpfValido(doc)) || (doc.length === 14 && u.cnpjValido(doc)))) {
+        const lista = await sgp.consultarCliente(doc);
+        if (lista.length === 1) achado = lista[0];
+        else if (lista.length > 1) achado = lista.find((c) => numeros.includes(String(c.id))) || null;
+      }
+      // Sem nome lido, só aceita o número se for o único que existe no SGP
+      const encontrados = [];
+      for (const n of achado ? [] : numeros) {
+        const lista = await sgp.consultarContrato(n).catch(() => []);
+        const c = lista.find((x) => String(x.id) === n) || lista[0];
+        if (c && bate(c)) encontrados.push(c);
+        if (c && nome && bate(c)) break;
+      }
+      if (!achado && (nome ? encontrados.length >= 1 : encontrados.length === 1)) achado = encontrados[0];
+    } catch (e) {
+      registrar(`[técnico] erro ao consultar o SGP pela imagem: ${e.message}`);
+      return pedirId('Não consegui consultar o SGP agora. 😕');
+    }
+    if (!achado) return pedirId(`Não consegui identificar o cliente nessa imagem${nome ? ` (li "${nomeBonito(nome)}")` : ''}. 🤔`);
+    registrar(`[técnico] cliente identificado pela imagem: ID ${achado.id}`);
+    s.tecOcorrencia = { contrato: achado.id, nome: achado.nome || '' };
+    delete s.tecContratos;
+    s.etapa = 'tec_oc_desc';
+    return enviar(chatId, `Identifiquei o cliente ✅\n\n${fichaTecnico(achado)}\n\n🛠️ Me descreve a *ocorrência* (texto ou áudio) que eu abro no SGP.\n_Se não for esse cliente, digite *0*._`);
   }
 
   function pedirDescricaoOcorrencia(chatId, s, c) {
@@ -1712,6 +1762,21 @@ function nomeLGPD(n) {
   const partes = nomeBonito(n).split(' ').filter((p) => p && !['da', 'de', 'do', 'das', 'dos', 'e'].includes(p));
   if (!partes.length) return '';
   return [partes[0], ...partes.slice(1).map((p) => `${p.charAt(0)}.`)].join(' ');
+}
+
+// Nome lido na imagem x nome do SGP: pelo menos 2 palavras iguais (ou todas, se tiver menos)
+function nomesParecidos(a, b) {
+  const palavras = (n) => u.normalizar(n).replace(/[^a-z ]/g, ' ').split(/\s+/).filter((p) => p.length >= 3 && !['das', 'dos'].includes(p));
+  const pa = palavras(a);
+  const pb = new Set(palavras(b));
+  return pa.filter((p) => pb.has(p)).length >= Math.min(2, pa.length, pb.size);
+}
+
+// "Neto, abre essa OS aí" não descreve o problema
+function soPedidoDeAbrir(texto) {
+  const resto = u.normalizar(texto).replace(/[^a-z ]/g, ' ').split(/\s+/)
+    .filter((p) => p && !/^(abr\w*|cri\w*|essa|esta|essas|uma|um|os|o\.?s|ordem|servico|ocorrencia|chamado|ai|aqui|ae|por|favor|pfv|pf|ok|ta|neto|pra|para|mim|me|faz|fazer|da|de|do|cliente|dessa|desse|ela|ele|la|ja|e|a|so|só)$/.test(p));
+  return resto.length < 2;
 }
 
 // Rua (ou sítio) de cada contrato: a parte do endereço antes do bairro, sem o número.
