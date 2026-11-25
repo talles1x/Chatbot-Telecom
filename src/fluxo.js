@@ -574,9 +574,15 @@ function criarFluxo({
       return direto ? opcaoTecnico(chatId, s, direto) : menuTecnico(chatId);
     }
     s.visto = Date.now();
+    // Na pergunta do auxiliar, "0" quer dizer "nenhum" (não volta ao menu)
+    if (s.etapa === 'tec_oc_aux' && t === '0') return etapaAuxiliar(chatId, s, texto);
     if (['0', 'menu', 'cancelar', 'voltar', 'v'].includes(t)) {
       s.etapa = 'tec_menu';
       return menuTecnico(chatId, 'Certo. O que você precisa? 👇');
+    }
+    if (s.etapa === 'tec_oc_aux') {
+      if (naoTexto || audioFalhou) return enviar(chatId, 'Me responde com o *número* do auxiliar, ou *0* se foi sozinho. 🙂');
+      return etapaAuxiliar(chatId, s, texto);
     }
     if (s.etapa === 'tec_oc_desc') {
       if (naoTexto || audioFalhou) return enviar(chatId, 'Me descreve o problema ou o serviço *por texto* ou *áudio*, por favor. 🙂');
@@ -725,17 +731,43 @@ function criarFluxo({
     }
     if (!achado) return pedirId(`Não consegui identificar o cliente nessa imagem${nome ? ` (li "${nomeBonito(nome)}")` : ''}. 🤔`);
     registrar(`[técnico] cliente identificado pela imagem: ID ${achado.id}`);
-    s.tecOcorrencia = { contrato: achado.id, nome: achado.nome || '' };
-    delete s.tecContratos;
-    s.etapa = 'tec_oc_desc';
-    return enviar(chatId, `Identifiquei o cliente ✅\n\n${fichaTecnico(achado)}\n\n🛠️ Me descreve a *ocorrência* (texto ou áudio) que eu abro no SGP.\n_Se não for esse cliente, digite *0*._`);
+    await enviar(chatId, `Identifiquei o cliente ✅\n\n${fichaTecnico(achado)}\n\n_Se não for esse cliente, digite *cancelar*._`);
+    return pedirAuxiliar(chatId, s, achado);
   }
 
   function pedirDescricaoOcorrencia(chatId, s, c) {
-    s.tecOcorrencia = { contrato: c.id, nome: c.nome || '' };
+    return enviar(chatId, `ID *${c.id}*${c.nome ? ` - ${nomeBonito(c.nome)}` : ''} ✅`).then(() => pedirAuxiliar(chatId, s, c));
+  }
+
+  // Antes da descrição: quem foi o técnico auxiliar (os outros técnicos do bot, ou nenhum)
+  async function pedirAuxiliar(chatId, s, c) {
+    const eu = (await tecnicoDe(chatId)) || {};
+    s.tecOcorrencia = { contrato: c.id, nome: c.nome || '', auxiliares: [] };
     delete s.tecContratos;
+    s.etapa = 'tec_oc_aux';
+    s.tecAuxOpcoes = cfg.tecnicos.filter((t) => t.nome && t.numero !== eu.numero).map((t) => t.nome);
+    return enviar(chatId, '👷 Quem foi o *técnico auxiliar*? Responda com o número (pode mais de um, ex.: *1, 3*) 👇\n\n' +
+      [...s.tecAuxOpcoes.map((n, i) => `*${i + 1}* - ${n}`), `*0* - Nenhum (fui sozinho)`].join('\n'));
+  }
+
+  async function etapaAuxiliar(chatId, s, texto) {
+    const t = u.normalizar(texto);
+    const opcoes = s.tecAuxOpcoes || [];
+    let escolhidos = [];
+    if (/^(0|nenhum|ninguem|sozinho|so eu|nao|sem auxiliar|sem)$/.test(t)) escolhidos = [];
+    else {
+      for (const n of (t.match(/\d+/g) || [])) if (opcoes[Number(n) - 1]) escolhidos.push(opcoes[Number(n) - 1]);
+      // Pelo nome ("foi o Diogo", também por áudio)
+      for (const nome of opcoes) if (new RegExp(`\\b${u.normalizar(nome)}\\b`).test(t)) escolhidos.push(nome);
+      escolhidos = [...new Set(escolhidos)];
+      if (!escolhidos.length) {
+        return enviar(chatId, 'Não entendi 😅 Responda com o *número* do auxiliar (ex.: *1* ou *1, 3*), ou *0* se foi sozinho.');
+      }
+    }
+    s.tecOcorrencia.auxiliares = escolhidos;
+    delete s.tecAuxOpcoes;
     s.etapa = 'tec_oc_desc';
-    return enviar(chatId, `ID *${c.id}*${c.nome ? ` - ${nomeBonito(c.nome)}` : ''} ✅\nAgora me descreve a ocorrência (o problema ou o serviço feito), numa mensagem só.`);
+    return enviar(chatId, `${escolhidos.length ? `Auxiliar: *${escolhidos.join(', ')}* ✅\n` : ''}🛠️ Agora me descreve a *ocorrência* (o problema ou o serviço), por texto ou áudio, que eu abro no SGP.`);
   }
 
   // Usuário do técnico no SGP: o @usuario do TECNICO_NUMEROS, ou o técnico do SGP com o mesmo nome
@@ -762,17 +794,24 @@ function criarFluxo({
     const numero = await Promise.resolve(numeroDoChat(chatId)).catch(() => '');
     const tec = (await tecnicoDe(chatId)) || {};
     const quem = tec.nome ? `técnico ${tec.nome}` : 'técnico';
-    const conteudo = `${descricao.slice(0, 1500)}\n\n(Aberta pelo ${quem} via WhatsApp${numero ? ` - ${fone(numero)}` : ''})`;
+    const comAux = (oc.auxiliares || []).length ? `, auxiliar: ${oc.auxiliares.join(', ')}` : '';
+    const conteudo = `${descricao.slice(0, 1500)}\n\n(Aberta pelo ${quem} via WhatsApp${numero ? ` - ${fone(numero)}` : ''}${comAux})`;
     const responsavel = await usuarioSgpDoTecnico(tec);
+    const auxiliares = [];
+    for (const nome of oc.auxiliares || []) {
+      const t = cfg.tecnicos.find((x) => x.nome === nome) || { nome };
+      auxiliares.push({ nome, sgp: await usuarioSgpDoTecnico(t) });
+    }
+    const auxSgp = auxiliares.filter((a) => a.sgp).map((a) => a.sgp.username);
     let r;
     try {
-      r = await sgp.criarChamado(oc.contrato, conteudo, { contatoNome: tec.nome ? `${tec.nome} (técnico)` : 'Técnico (WhatsApp)', contatoTelefone: numero, responsavel: responsavel && responsavel.username });
+      r = await sgp.criarChamado(oc.contrato, conteudo, { contatoNome: tec.nome ? `${tec.nome} (técnico)` : 'Técnico (WhatsApp)', contatoTelefone: numero, responsavel: responsavel && responsavel.username, auxiliares: auxSgp });
     } catch (e) {
       r = { ok: false, mensagem: e.message };
     }
     if (r.ok) {
-      registrar(`[técnico] ${tec.nome || ''} abriu ocorrência no contrato ${oc.contrato}, protocolo ${r.protocolo || '-'}, O.S. para ${responsavel ? `${responsavel.nome || responsavel.username} (${responsavel.username})` : 'ninguém (técnico não achado no SGP)'}`);
-      await enviar(chatId, `Ocorrência aberta no SGP! ✅\n📋 ID ${oc.contrato}${r.protocolo ? `\n🔖 Protocolo: *${r.protocolo}*` : ''}${responsavel ? `\n👷 Ocorrência e O.S. encaminhadas para: *${nomeBonito(responsavel.nome) || responsavel.username}*` : '\n⚠️ Não achei você na lista de técnicos do SGP, então a O.S. ficou sem técnico responsável.'}`);
+      registrar(`[técnico] ${tec.nome || ''} abriu ocorrência no contrato ${oc.contrato}, protocolo ${r.protocolo || '-'}, O.S. para ${responsavel ? `${responsavel.nome || responsavel.username} (${responsavel.username})` : 'ninguém (técnico não achado no SGP)'}, auxiliar: ${auxiliares.map((a) => `${a.nome}${a.sgp ? ` (${a.sgp.username})` : ' (não achado no SGP)'}`).join(', ') || 'nenhum'}`);
+      await enviar(chatId, `Ocorrência aberta no SGP! ✅\n📋 ID ${oc.contrato}${r.protocolo ? `\n🔖 Protocolo: *${r.protocolo}*` : ''}${responsavel ? `\n👷 Ocorrência e O.S. encaminhadas para: *${tec.nome || nomeBonito(responsavel.nome) || responsavel.username}*` : '\n⚠️ Não achei você na lista de técnicos do SGP, então a O.S. ficou sem técnico responsável.'}${auxiliares.length ? `\n🤝 Auxiliar: ${auxiliares.map((a) => `*${a.nome}*${a.sgp ? '' : ' (não está no SGP)'}`).join(', ')}` : ''}`);
       return menuTecnico(chatId, 'Precisa de mais alguma coisa? 👇');
     }
     // Não deu para abrir no SGP: avisa a equipe com o resumo para abrirem manualmente

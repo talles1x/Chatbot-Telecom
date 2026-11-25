@@ -224,7 +224,7 @@ async function titulosPagos(dataISO) {
 // ---------- Abrir chamado (ocorrência + ordem de serviço) ----------
 // Retorna { ok, protocolo, mensagem }
 // responsavel = usuário (username) do técnico no SGP que fica como responsável da O.S. e da ocorrência
-async function criarChamado(contrato, conteudo, { contatoNome, contatoTelefone, responsavel } = {}) {
+async function criarChamado(contrato, conteudo, { contatoNome, contatoTelefone, responsavel, auxiliares = [] } = {}) {
   if (cfg.sgp.mock) return { ok: true, protocolo: '2026110300001', mensagem: '' };
   const dados = { contrato: Number(contrato) || contrato, conteudo, conteudolimpo: 1 };
   if (contatoNome) dados.contato_nome = contatoNome;
@@ -233,6 +233,7 @@ async function criarChamado(contrato, conteudo, { contatoNome, contatoTelefone, 
     dados.responsavel = responsavel; // técnico responsável da ordem de serviço
     dados.responsaveloc = responsavel; // responsável da ocorrência
   }
+  if (auxiliares.length) dados.tecnicos = auxiliares; // técnicos auxiliares da O.S. (usuários do SGP)
   const r = await post('/api/ura/chamado/', dados);
   const status = primeiro(r, ['status', 'sucesso', 'success']);
   return {
