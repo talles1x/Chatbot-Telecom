@@ -374,7 +374,7 @@ function criarFluxo({
     const expirou = s && Date.now() - s.visto > cfg.sessaoMin * 60000;
 
     // Técnico: menu próprio (consultar cliente, online, ocorrência, atendente)
-    if (await ehTecnico(chatId)) return receberTecnico(chatId, s && !expirou ? s : null, texto, { naoTexto, audioFalhou, tipo, lerImagem });
+    if (await ehTecnico(chatId)) return receberTecnico(chatId, s && !expirou ? s : null, texto, { naoTexto, audioFalhou, tipo, lerImagem, encaminhada });
     // Número da equipe: menu próprio (fechar caixa, pré-cadastro, atendente), nunca o de cliente
     if (await ehEquipe(chatId)) return receberEquipe(chatId, s && !expirou ? s : null, texto, { naoTexto, audioFalhou });
 
@@ -560,8 +560,18 @@ function criarFluxo({
   };
   const PEDIR_CLIENTE = 'Me manda o *ID do SGP* do cliente (ou o CPF/CNPJ).\n\n_Para voltar ao menu, digite *0*._';
 
-  async function receberTecnico(chatId, s, texto, { naoTexto, audioFalhou, tipo, lerImagem }) {
+  // Mensagem do técnico que é para a equipe, não para o bot: cancela o que estava fazendo e passa para uma pessoa
+  async function tecParaEquipe(chatId, s, motivo) {
+    if (s) { s.etapa = 'tec_menu'; delete s.tecOcorrencia; delete s.tecAlt; delete s.tecAuxOpcoes; delete s.tecRespOpcoes; }
+    registrar(`[técnico] ${chatId}: ${motivo} - passou para a equipe`);
+    await enviar(chatId, 'Recebi 👍 Passei para a equipe, em instantes alguém vê por aqui.');
+    return transferir(chatId, false);
+  }
+
+  async function receberTecnico(chatId, s, texto, { naoTexto, audioFalhou, tipo, lerImagem, encaminhada }) {
     const t = u.normalizar(texto);
+    // Encaminhada (dados de instalação, recado de cliente...): é para a equipe
+    if (encaminhada) return tecParaEquipe(chatId, s, 'mensagem encaminhada');
     // Print/foto da ficha do cliente: lê a imagem, acha o cliente no SGP e já pede a descrição da ocorrência
     if (naoTexto && tipo === 'image' && lerImagem) {
       if (!s) { s = { etapa: 'tec_menu', tentativas: 0, visto: Date.now() }; sessoes.set(chatId, s); }
@@ -708,8 +718,9 @@ function criarFluxo({
 
   // Lê a ficha do cliente na imagem e procura no SGP: CPF, ou cada número conferindo o nome
   async function tecFichaPorImagem(chatId, s, lerImagem) {
-    await enviar(chatId, '🔎 Lendo a imagem...');
     const texto = await lerImagem().catch(() => null);
+    // Só trata como ficha o print do app do SGP; outra foto (documento, casa, equipamento) vai para a equipe
+    if (texto !== null && !ocr.ehFichaSgp(texto)) return tecParaEquipe(chatId, s, 'imagem que não é ficha do SGP');
     const pedirId = (msg) => {
       s.etapa = 'tec_oc_contrato';
       delete s.tecContratos;
@@ -799,11 +810,15 @@ function criarFluxo({
       for (const nome of opcoes) if (new RegExp(`\\b${u.normalizar(nome)}\\b`).test(t)) escolhidos.push(nome);
       escolhidos = [...new Set(escolhidos)];
       if (!escolhidos.length) {
+        // Frase que não responde a pergunta (ex.: "Instalação pra amanhã"): é para a equipe
+        if (t.split(/\s+/).length >= 3 || s.tecAuxErrou) return tecParaEquipe(chatId, s, 'respondeu outra coisa na pergunta do auxiliar');
+        s.tecAuxErrou = true;
         return enviar(chatId, 'Não entendi 😅 Responda com o *número* do auxiliar (ex.: *1* ou *1, 3*), ou *0* se foi sozinho.');
       }
     }
     s.tecOcorrencia.auxiliares = escolhidos;
     delete s.tecAuxOpcoes;
+    delete s.tecAuxErrou;
     s.etapa = 'tec_oc_desc';
     return enviar(chatId, `${escolhidos.length ? `Auxiliar: *${escolhidos.join(', ')}* ✅\n` : ''}🛠️ Agora me descreve a *ocorrência* (o problema ou o serviço), por texto ou áudio, que eu abro no SGP.`);
   }

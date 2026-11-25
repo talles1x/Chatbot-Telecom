@@ -58,4 +58,11 @@ function dadosDaFicha(texto) {
   return { nome: nome.trim(), numeros, doc };
 }
 
-module.exports = { lerTexto, dadosDaFicha };
+// O texto parece o print da ficha do cliente no app do SGP? (documento, foto de casa etc. não)
+function ehFichaSgp(texto) {
+  const t = String(texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const marcas = [/latitude/, /longitude/, /contrato\s*status/, /data do status/, /copiar/, /observac/, /endere/, /contato/];
+  return marcas.filter((m) => m.test(t)).length >= 3;
+}
+
+module.exports = { lerTexto, dadosDaFicha, ehFichaSgp };
