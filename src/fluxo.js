@@ -196,6 +196,7 @@ const OP = {
     { valor: 'c', texto: '🔎 Consultar cliente', chave: /\b(consult|cliente|cadastro|dados|endereco)/ },
     { valor: 'o', texto: '📶 Ver se está online', chave: /\b(online|offline|conexao|conectad|caiu|acesso|sinal)\b/ },
     { valor: 'r', texto: '🛠️ Criar ocorrência', chave: /\b(ocorrencia|chamado|os|ordem de servico|abrir)\b/ },
+    { valor: 'u', texto: '✏️ Atualizar telefone ou referência', chave: /\b(atualiz|alter|mudar|muda|trocar|troca|corrig)\w*|\b(telefone|referencia)\b/ },
     { valor: 'a', texto: '👤 Falar com atendente', chave: /\b(atendente|falar|pessoa|humano|ajuda)\b/ },
   ],
   // Menu da equipe (números em ATENDENTE_NUMEROS)
@@ -598,6 +599,10 @@ function criarFluxo({
     if (s.etapa === 'tec_consultar') return tecConsultar(chatId, s, texto);
     if (s.etapa === 'tec_online') return tecOnline(chatId, s, texto);
     if (s.etapa === 'tec_oc_contrato') return tecEscolherContratoOcorrencia(chatId, s, texto);
+    if (s.etapa === 'tec_alt_contrato') return tecAltContrato(chatId, s, texto);
+    if (s.etapa === 'tec_alt_campo') return tecAltCampo(chatId, s, texto);
+    if (s.etapa === 'tec_alt_ref') return tecAltReferencia(chatId, s, texto);
+    if (s.etapa === 'tec_alt_tel') return tecAltTelefone(chatId, s, texto);
     const op = /^\d$/.test(t) && OP.tecnico[Number(t) - 1] ? OP.tecnico[Number(t) - 1].valor : ent.casarOpcao(texto, OP.tecnico) || t;
     return opcaoTecnico(chatId, s, op);
   }
@@ -606,6 +611,7 @@ function criarFluxo({
     if (t === 'c') { s.etapa = 'tec_consultar'; return enviar(chatId, `🔎 *Consultar cliente*\n${PEDIR_CLIENTE}`); }
     if (t === 'o') { s.etapa = 'tec_online'; return enviar(chatId, `📶 *Ver se está online*\n${PEDIR_CLIENTE}`); }
     if (t === 'r') { s.etapa = 'tec_oc_contrato'; delete s.tecContratos; return enviar(chatId, `🛠️ *Criar ocorrência*\n${PEDIR_CLIENTE}`); }
+    if (t === 'u') { s.etapa = 'tec_alt_contrato'; delete s.tecContratos; return enviar(chatId, `✏️ *Atualizar telefone ou ponto de referência*\n${PEDIR_CLIENTE}`); }
     if (t === 'a') {
       await enviar(chatId, 'Certo! Já avisei a equipe, em instantes alguém fala com você por aqui. 😊');
       return transferir(chatId, false);
@@ -800,6 +806,81 @@ function criarFluxo({
     delete s.tecAuxOpcoes;
     s.etapa = 'tec_oc_desc';
     return enviar(chatId, `${escolhidos.length ? `Auxiliar: *${escolhidos.join(', ')}* ✅\n` : ''}🛠️ Agora me descreve a *ocorrência* (o problema ou o serviço), por texto ou áudio, que eu abro no SGP.`);
+  }
+
+  // ---------- Técnico: atualizar telefone ou ponto de referência ----------
+  async function tecAltContrato(chatId, s, texto) {
+    let c = null;
+    if (s.tecContratos) {
+      const t = u.soDigitos(texto);
+      c = s.tecContratos[Number(t) - 1] && t.length <= 2 ? s.tecContratos[Number(t) - 1] : s.tecContratos.find((x) => String(x.id) === t);
+      if (!c) delete s.tecContratos;
+    }
+    if (!c) {
+      const lista = await contratosDoTecnico(chatId, texto);
+      if (!lista) return;
+      if (lista.length > 1) {
+        s.tecContratos = ordenarContratos(lista).slice(0, 10);
+        return enviar(chatId, 'Esse CPF tem mais de um contrato. Qual deles?\n\n' +
+          s.tecContratos.map((x, i) => `*${i + 1}* - ID ${x.id}${x.endereco ? ` · ${enderecoLGPD(x.endereco)}` : ''}`).join('\n'));
+      }
+      c = lista[0];
+    }
+    delete s.tecContratos;
+    s.tecAlt = { contrato: c.id, clienteId: c.clienteId, nome: c.nome || '' };
+    s.etapa = 'tec_alt_campo';
+    return enviar(chatId, [
+      `📋 *ID ${c.id}*${c.nome ? ` - ${nomeBonito(c.nome)}` : ''}`,
+      `🧭 Referência atual: ${c.referencia || '_(sem referência)_'}`,
+      `📞 Telefones: ${c.telefones && c.telefones.length ? c.telefones.map(fone).join(' / ') : '_(nenhum)_'}`,
+      '',
+      'O que você quer atualizar? 👇',
+      '*1* - 🧭 Ponto de referência',
+      '*2* - 📞 Telefone',
+    ].join('\n'));
+  }
+
+  async function tecAltCampo(chatId, s, texto) {
+    const t = u.normalizar(texto);
+    if (t === '1' || /refer/.test(t)) { s.etapa = 'tec_alt_ref'; return enviar(chatId, 'Me manda o *novo ponto de referência* (texto ou áudio).'); }
+    if (t === '2' || /tel|fone|celular|numero/.test(t)) { s.etapa = 'tec_alt_tel'; return enviar(chatId, 'Me manda o *novo telefone* com DDD (ex.: 83999999999).'); }
+    return enviar(chatId, 'Responda *1* para ponto de referência ou *2* para telefone (ou *0* para o menu).');
+  }
+
+  async function tecAltReferencia(chatId, s, texto) {
+    const ref = String(texto || '').trim();
+    if (ref.length < 5) return enviar(chatId, 'Me descreve um pouco mais o ponto de referência, por favor.');
+    const alt = s.tecAlt || {};
+    s.etapa = 'tec_menu';
+    delete s.tecAlt;
+    const tec = (await tecnicoDe(chatId)) || {};
+    const r = await sgp.adicionarAnotacao(alt.clienteId, alt.contrato, `Novo ponto de referência informado pelo técnico ${tec.nome || ''} (WhatsApp): ${ref.slice(0, 500)}`);
+    registrar(`[técnico] ${tec.nome || ''} informou nova referência do contrato ${alt.contrato}: ${r.ok ? 'anotação registrada no SGP' : `anotação não registrada (${r.mensagem})`}`);
+    // O SGP não deixa alterar o endereço pela API: avisa a equipe para atualizar o campo
+    await aoOcorrencia(chatId, ['🧭 *Atualizar ponto de referência no SGP*', `ID SGP: ${alt.contrato}${alt.nome ? ` - ${alt.nome}` : ''}`, `Nova referência: ${ref.slice(0, 500)}`, `Técnico: ${tec.nome || chatId}`].join('\n'), 'tecnico')
+      .catch((e) => log(`[erro ao avisar equipe] ${e.message}`));
+    await enviar(chatId, `${r.ok ? 'Registrei a nova referência no SGP como aviso no *cadastro* e no *contrato* do cliente ✅' : 'Não consegui registrar no SGP agora 😕'}\nAvisei a equipe para trocar o ponto de referência no cadastro e no contrato (o SGP não deixa o bot alterar esse campo).`);
+    return menuTecnico(chatId, 'Precisa de mais alguma coisa? 👇');
+  }
+
+  async function tecAltTelefone(chatId, s, texto) {
+    let tel = u.soDigitos(texto);
+    if (tel.length > 11 && tel.startsWith('55')) tel = tel.slice(2);
+    if (tel.length < 10 || tel.length > 11) return enviar(chatId, 'Não reconheci o número 😅 Me manda com DDD, ex.: *83999999999*.');
+    const alt = s.tecAlt || {};
+    s.etapa = 'tec_menu';
+    delete s.tecAlt;
+    const tec = (await tecnicoDe(chatId)) || {};
+    const r = await sgp.adicionarContato(alt.contrato, tel, tel.length === 11 ? 'CELULAR_PESSOAL' : 'TELEFONE_FIXO_RESIDENCIAL');
+    registrar(`[técnico] ${tec.nome || ''} adicionou telefone no contrato ${alt.contrato}: ${r.ok ? 'ok' : `falhou (${r.mensagem})`}`);
+    if (r.ok) {
+      await enviar(chatId, `Telefone *${fone(tel)}* adicionado no cadastro ✅\n_O SGP não deixa apagar o antigo por aqui: se ele não for mais usado, peça para a equipe remover._`);
+    } else {
+      await aoOcorrencia(chatId, ['📞 *Adicionar telefone no SGP*', `ID SGP: ${alt.contrato}${alt.nome ? ` - ${alt.nome}` : ''}`, `Novo telefone: ${fone(tel)}`, `Técnico: ${tec.nome || chatId}`].join('\n'), 'tecnico')
+        .catch((e) => log(`[erro ao avisar equipe] ${e.message}`));
+      await enviar(chatId, `Não consegui adicionar no SGP agora${r.mensagem ? ` (_${r.mensagem}_)` : ''} 😕\nAvisei a equipe para cadastrar o telefone *${fone(tel)}*.`);
+    }
+    return menuTecnico(chatId, 'Precisa de mais alguma coisa? 👇');
   }
 
   // Usuário do técnico no SGP: o @usuario do TECNICO_NUMEROS, ou o técnico do SGP com o mesmo nome

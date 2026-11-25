@@ -63,6 +63,7 @@ function lerContratos(r) {
   const lista = primeiro(r, ['contratos', 'clientes', 'dados']) || [];
   return (Array.isArray(lista) ? lista : [lista]).map((c) => ({
     id: primeiro(c, ['contratoId', 'contrato', 'id', 'contrato_id']),
+    clienteId: primeiro(c, ['clienteId', 'cliente_id', 'idCliente', 'cliente.id']),
     nome: primeiro(c, ['razaoSocial', 'nome', 'cliente.nome', 'clienteNome']) || '',
     status: primeiro(c, ['contratoStatusDisplay', 'status_display', 'statusDisplay', 'status']) || '',
     endereco: extrairEndereco(c),
@@ -243,6 +244,33 @@ async function criarChamado(contrato, conteudo, { contatoNome, contatoTelefone, 
   };
 }
 
+// ---------- Atualizar cadastro (técnicos) ----------
+// Telefone: a API só ADICIONA um contato ao contrato (o antigo continua no cadastro)
+async function adicionarContato(contrato, contato, tipo = 'CELULAR_PESSOAL') {
+  if (cfg.sgp.mock) return { ok: true, mensagem: '' };
+  try {
+    const r = await post('/api/ura/contato/add/', { contrato: Number(contrato) || contrato, contato, tipo });
+    const status = primeiro(r, ['status', 'sucesso', 'success']);
+    const erro = primeiro(r, ['erro', 'error']);
+    return { ok: !erro && status !== 0 && status !== '0' && status !== false, mensagem: String(primeiro(r, ['msg', 'mensagem', 'message', 'erro', 'error']) || '') };
+  } catch (e) {
+    return { ok: false, mensagem: e.motivo || e.message };
+  }
+}
+
+// Ponto de referência: a API não altera o endereço; registra uma anotação no cliente (aparece no cadastro e no contrato)
+async function adicionarAnotacao(clienteId, contratoId, anotacao) {
+  if (cfg.sgp.mock) return { ok: true, mensagem: '' };
+  if (!clienteId) return { ok: false, mensagem: 'o SGP não informou o ID do cliente' };
+  try {
+    const r = await post('/api/ura/cliente/anotacao/add', { cliente_id: Number(clienteId) || clienteId, contrato_id: Number(contratoId) || contratoId, anotacao, alerta_modo: 2 });
+    const id = primeiro(Array.isArray(r) ? r[0] : r, ['clienteAnotacaoId', 'id']);
+    return { ok: Boolean(id), mensagem: String(primeiro(r, ['msg', 'mensagem', 'message', 'erro']) || '') };
+  } catch (e) {
+    return { ok: false, mensagem: e.motivo || e.message };
+  }
+}
+
 // ---------- Técnicos cadastrados no SGP ({ id, username, nome }), guardados por 1 hora ----------
 let cacheTecnicos = { em: 0, lista: [] };
 async function listarTecnicos() {
@@ -370,4 +398,4 @@ const mock = {
   },
 };
 
-module.exports = { consultarCliente, consultarContrato, titulosAbertos, titulosPagos, criarChamado, listarTecnicos, criarPreCadastro, liberarPromessa, verificarAcesso };
+module.exports = { consultarCliente, consultarContrato, titulosAbertos, titulosPagos, criarChamado, listarTecnicos, adicionarContato, adicionarAnotacao, criarPreCadastro, liberarPromessa, verificarAcesso };
