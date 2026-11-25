@@ -62,9 +62,12 @@ module.exports = {
   atendentesNumeros: lista(process.env.ATENDENTE_NUMEROS),
   // Números dos técnicos: menu próprio (consultar cliente, ver se está online, criar ocorrência, atendente)
   // Aceita "558399999999" ou "558399999999=Fulano" (com o nome, o bot cumprimenta e assina as ocorrências)
+  // TECNICO_NUMEROS=5583999999999=Fulano,5583888888888=Beltrano@usuario.sgp
+  // (@usuario = usuário do técnico no SGP; sem ele, o bot procura pelo nome na lista de técnicos do SGP)
   tecnicos: (process.env.TECNICO_NUMEROS || '').split(',').map((t) => {
-    const [numero, ...nome] = t.split('=');
-    return { numero: numero.replace(/\D/g, ''), nome: nome.join('=').trim() };
+    const [numero, ...resto] = t.split('=');
+    const [nome, usuario] = resto.join('=').split('@');
+    return { numero: numero.replace(/\D/g, ''), nome: String(nome || '').trim(), usuario: String(usuario || '').trim() };
   }).filter((t) => t.numero),
   // Caixas para o fechamento: CAIXAS=Nome|usuarios do SGP|números que podem fechar ; Outro caixa|...
   // Ex.: CAIXAS=Centro|joao|5583999999999;Loja 2|maria,ana|5583999999999,5583888888888

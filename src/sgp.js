@@ -223,11 +223,13 @@ async function titulosPagos(dataISO) {
 
 // ---------- Abrir chamado (ocorrência + ordem de serviço) ----------
 // Retorna { ok, protocolo, mensagem }
-async function criarChamado(contrato, conteudo, { contatoNome, contatoTelefone } = {}) {
+// responsavel = usuário (username) do técnico no SGP que fica como responsável da O.S.
+async function criarChamado(contrato, conteudo, { contatoNome, contatoTelefone, responsavel } = {}) {
   if (cfg.sgp.mock) return { ok: true, protocolo: '2026110300001', mensagem: '' };
   const dados = { contrato: Number(contrato) || contrato, conteudo, conteudolimpo: 1 };
   if (contatoNome) dados.contato_nome = contatoNome;
   if (contatoTelefone) dados.contato_telefone = contatoTelefone;
+  if (responsavel) dados.responsavel = responsavel;
   const r = await post('/api/ura/chamado/', dados);
   const status = primeiro(r, ['status', 'sucesso', 'success']);
   return {
@@ -235,6 +237,19 @@ async function criarChamado(contrato, conteudo, { contatoNome, contatoTelefone }
     protocolo: primeiro(r, ['protocolo', 'protocolo_id', 'ocorrencia']),
     mensagem: primeiro(r, ['msg', 'mensagem', 'message']) || '',
   };
+}
+
+// ---------- Técnicos cadastrados no SGP ({ id, username, nome }), guardados por 1 hora ----------
+let cacheTecnicos = { em: 0, lista: [] };
+async function listarTecnicos() {
+  if (cfg.sgp.mock) return [{ id: 1, username: 'tecnico.teste', nome: 'Tecnico Teste' }];
+  if (Date.now() - cacheTecnicos.em < 3600000 && cacheTecnicos.lista.length) return cacheTecnicos.lista;
+  const r = await post('/api/ura/tecnicos/', {});
+  const lista = (Array.isArray(r) ? r : Object.values(r || {}).find(Array.isArray) || [])
+    .map((t) => ({ id: t.id, username: String(t.username || t.usuario || ''), nome: String(t.nome || t.name || '') }))
+    .filter((t) => t.username);
+  cacheTecnicos = { em: Date.now(), lista };
+  return lista;
 }
 
 // ---------- Pré-cadastro de cliente novo ----------
@@ -351,4 +366,4 @@ const mock = {
   },
 };
 
-module.exports = { consultarCliente, consultarContrato, titulosAbertos, titulosPagos, criarChamado, criarPreCadastro, liberarPromessa, verificarAcesso };
+module.exports = { consultarCliente, consultarContrato, titulosAbertos, titulosPagos, criarChamado, listarTecnicos, criarPreCadastro, liberarPromessa, verificarAcesso };
