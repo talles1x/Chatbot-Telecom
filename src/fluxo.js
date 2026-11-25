@@ -772,7 +772,7 @@ function criarFluxo({
     }
     if (r.ok) {
       registrar(`[técnico] ${tec.nome || ''} abriu ocorrência no contrato ${oc.contrato}, protocolo ${r.protocolo || '-'}, O.S. para ${responsavel ? `${responsavel.nome || responsavel.username} (${responsavel.username})` : 'ninguém (técnico não achado no SGP)'}`);
-      await enviar(chatId, `Ocorrência aberta no SGP! ✅\n📋 ID ${oc.contrato}${r.protocolo ? `\n🔖 Protocolo: *${r.protocolo}*` : ''}${responsavel ? `\n👷 O.S. encaminhada para: *${nomeBonito(responsavel.nome) || responsavel.username}*` : '\n⚠️ Não achei você na lista de técnicos do SGP, então a O.S. ficou sem técnico responsável.'}`);
+      await enviar(chatId, `Ocorrência aberta no SGP! ✅\n📋 ID ${oc.contrato}${r.protocolo ? `\n🔖 Protocolo: *${r.protocolo}*` : ''}${responsavel ? `\n👷 Ocorrência e O.S. encaminhadas para: *${nomeBonito(responsavel.nome) || responsavel.username}*` : '\n⚠️ Não achei você na lista de técnicos do SGP, então a O.S. ficou sem técnico responsável.'}`);
       return menuTecnico(chatId, 'Precisa de mais alguma coisa? 👇');
     }
     // Não deu para abrir no SGP: avisa a equipe com o resumo para abrirem manualmente
