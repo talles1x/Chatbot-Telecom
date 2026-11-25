@@ -69,6 +69,8 @@ module.exports = {
     const [nome, usuario] = resto.join('=').split('@');
     return { numero: numero.replace(/\D/g, ''), nome: String(nome || '').trim(), usuario: String(usuario || '').trim() };
   }).filter((t) => t.numero),
+  // Técnicos administradores: ao abrir ocorrência, escolhem para qual técnico vai a O.S.
+  tecnicoAdmins: lista(process.env.TECNICO_ADMINS),
   // Caixas para o fechamento: CAIXAS=Nome|usuarios do SGP|números que podem fechar ; Outro caixa|...
   // Ex.: CAIXAS=Centro|joao|5583999999999;Loja 2|maria,ana|5583999999999,5583888888888
   // Sem CAIXAS, vale o formato antigo: um caixa (CAIXA_NOME + CAIXA_USUARIOS_SGP) para os ATENDENTE_NUMEROS.
