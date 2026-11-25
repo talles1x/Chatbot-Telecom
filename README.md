@@ -40,7 +40,7 @@ Os números em `TECNICO_NUMEROS` recebem outro menu, com o técnico cumprimentad
 
 - **Consultar cliente**: pelo ID do SGP (número do contrato) ou CPF/CNPJ, mostra nome completo, endereço com número, ponto de referência, plano, telefones e se a conexão está online.
 - **Ver se está online**: mostra 🟢 online / 🔴 offline de cada contrato do cliente.
-- **Criar ocorrência**: pede o ID do SGP ou o CPF e a descrição, abre o chamado direto no SGP e responde com o protocolo.
+- **Criar ocorrência**: pede o ID do SGP ou o CPF e a descrição, abre o chamado direto no SGP e responde com o protocolo. A ordem de serviço já sai com o técnico que pediu como **responsável** (campo `responsavel` da API): o bot procura o técnico pelo nome na lista de técnicos do SGP, ou usa o usuário informado em `TECNICO_NUMEROS` (`5583999999999=Fulano@usuario.sgp`).
 - **Ocorrência pela foto da ficha**: o técnico manda o print da ficha do cliente (do app do SGP) e o bot lê a imagem no próprio computador (OCR com `tesseract.js`), acha o cliente no SGP conferindo o nome com cada número da ficha (ou pelo CPF), mostra a ficha e pede a descrição por texto ou áudio para abrir a ocorrência. Um áudio só com "abre essa OS aí" não vira descrição: o bot pergunta qual é o problema.
 - **Falar com atendente**: passa a conversa para uma pessoa.
 
