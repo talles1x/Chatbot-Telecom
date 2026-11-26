@@ -269,8 +269,13 @@ const fluxo = criarFluxo({
     enviandoAgora.set(chave(destino, texto), (enviandoAgora.get(chave(destino, texto)) || 0) + 1);
     await client.sendMessage(destino, texto);
   },
-  aoTransferir: async (chatId) => {
-    atendimento.abrir(chatId, { motivo: 'pediu atendente', numero: await numeroReal(chatId).catch(() => '') });
+  // Algo que a equipe precisa resolver à mão (ex.: ocorrência que o SGP não aceitou): entra na fila do painel com nota
+  aoPendencia: async (chatId, texto, motivo) => {
+    atendimento.abrir(chatId, { motivo, numero: await numeroReal(chatId).catch(() => '') });
+    atendimento.anotar(chatId, texto.replace(/\*/g, ''), 'Bot');
+  },
+  aoTransferir: async (chatId, { motivo, categoria } = {}) => {
+    atendimento.abrir(chatId, { motivo: motivo || 'pediu atendente', categoria, numero: await numeroReal(chatId).catch(() => '') });
     const chat = await client.getChatById(chatId).catch(() => null);
     if (chat && chat.markUnread) await chat.markUnread().catch(() => {});
   },
@@ -454,6 +459,18 @@ client.on('message', async (msg) => {
     const chatId = msg.from;
     if (fluxo.estaPausado(chatId)) {
       registrar(`[pausado] ${numeroDe(chatId)} está com o atendente, bot não responde (mande #bot nessa conversa pelo celular da empresa para religar)`);
+      // Áudio com o atendente: transcreve mesmo assim, para o painel mostrar o texto (o bot não responde)
+      if ((msg.type === 'ptt' || msg.type === 'audio') && audio) {
+        baixarMidia(msg)
+          .then((m) => (m ? audio.transcrever(Buffer.from(m.data, 'base64')) : null))
+          .then((texto) => {
+            if (!texto) return;
+            atendimento.guardarTranscricao(msg.id && msg.id._serialized, texto);
+            registrar(`[áudio] ${numeroDe(chatId)} (com o atendente): ${ocultarDocs(texto)}`);
+            if (painel) painel.emitir('mensagem', { chat: chatId });
+          })
+          .catch(() => {});
+      }
       return;
     }
 
@@ -486,6 +503,7 @@ client.on('message', async (msg) => {
           if (!midia) registrar(`[áudio] ${numeroDe(chatId)}: não consegui baixar o áudio do WhatsApp`);
           const texto = midia ? await audio.transcrever(Buffer.from(midia.data, 'base64')) : null;
           if (texto) {
+            atendimento.guardarTranscricao(msg.id && msg.id._serialized, texto);
             registrar(`[áudio] ${numeroDe(chatId)}: ${ocultarDocs(texto)}`);
             return fluxo.receber(chatId, texto, { audio: true });
           }
@@ -567,8 +585,17 @@ const encerradoEm = new Map();
 const JANELA_DESPEDIDA_MS = 10 * 60000;
 
 // Mensagem enviada pelo número da empresa (bot OU atendente no celular/WhatsApp Web)
+// O WhatsApp às vezes avisa a MESMA mensagem duas vezes: a segunda vez não pode virar "atendente respondeu"
+const mensagensVistas = new Set();
+const enviadasPeloBot = new Map(); // texto -> quando o bot mandou (para reconhecer o aviso repetido)
 client.on('message_create', async (msg) => {
   if (!msg.fromMe) return;
+  const idMsg = msg.id && msg.id._serialized;
+  if (idMsg) {
+    if (mensagensVistas.has(idMsg)) return;
+    mensagensVistas.add(idMsg);
+    if (mensagensVistas.size > 3000) mensagensVistas.delete(mensagensVistas.values().next().value);
+  }
   if (msg.type === 'poll_creation') {
     // Enquete enviada pelo bot
     const q = enviandoAgora.get('__enquete__');
@@ -587,8 +614,12 @@ client.on('message_create', async (msg) => {
     // Foi o próprio bot
     if (qtd > 1) enviandoAgora.set(k, qtd - 1);
     else enviandoAgora.delete(k);
+    enviadasPeloBot.set(k, Date.now());
     return;
   }
+  // Mesmo texto que o bot acabou de mandar (aviso repetido com outro ID): também é do bot
+  if (Date.now() - (enviadasPeloBot.get(k) || 0) < 60000) return;
+  for (const [t, quando] of enviadasPeloBot) if (Date.now() - quando > 60000) enviadasPeloBot.delete(t);
 
   // "Mensagens para mim": o dono do número do bot usa aqui o menu da equipe (caixa, técnico)
   if (await ehConversaComigo(msg, chatId)) {

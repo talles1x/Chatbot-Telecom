@@ -280,7 +280,7 @@ function perguntarComoTexto(enviar) {
 }
 
 function criarFluxo({
-  enviar, enviarImagem, perguntar, aoTransferir = async () => {}, aoOcorrencia = async () => {}, log = console.log, estado = criarEstado(),
+  enviar, enviarImagem, perguntar, aoTransferir = async () => {}, aoOcorrencia = async () => {}, aoPendencia = async () => {}, log = console.log, estado = criarEstado(),
   // Número de telefone real da conversa (no WhatsApp, IDs @lid precisam ser convertidos)
   numeroDoChat = async (chatId) => String(chatId).split('@')[0].replace(/\D/g, ''),
   // (opcional) Transforma um HTML em PDF e envia como documento: (chatId, html, nomeArquivo, legenda)
@@ -384,12 +384,22 @@ function criarFluxo({
     return true;
   }
 
-  async function transferir(chatId, avisar = true) {
+  // Por que a conversa foi para o atendente (aparece no painel e nos relatórios)
+  function categoriaDe(s) {
+    const e = (s && (s.destino || s.etapa)) || '';
+    if (/financeiro|contrato|doc|verificar|confirmar_doc|promessa|acordo/.test(e)) return 'financeiro';
+    if (/suporte/.test(e)) return 'suporte';
+    if (/venda|contratar/.test(e)) return 'contratar';
+    return undefined;
+  }
+  async function transferir(chatId, avisar = true, info = {}) {
     if (avisar) await enviar(chatId, u.dentroDoHorario() ? MSG.atendenteDentro : MSG.atendenteFora());
+    const s = sessoes.get(chatId);
+    const motivo = `${info.motivo || 'pediu atendente'}${u.dentroDoHorario() ? '' : ' (fora do horário)'}`;
     pausar(chatId);
     log(`[atendente] conversa ${chatId} transferida para humano`);
-    registrar(`[atendente] ${chatId} passou para o atendente`);
-    await aoTransferir(chatId);
+    registrar(`[atendente] ${chatId} passou para o atendente (motivo: ${motivo})`);
+    await aoTransferir(chatId, { motivo, categoria: info.categoria || categoriaDe(s) });
   }
 
   function novaSessao(chatId) {
@@ -414,7 +424,7 @@ function criarFluxo({
     } catch (e) {
       log(`[erro] ${chatId}: ${e.message}`);
       await enviar(chatId, MSG.erroSistema);
-      await transferir(chatId, false);
+      await transferir(chatId, false, { motivo: 'erro no sistema do bot' });
     }
     if (!estaPausado(chatId)) agendarLembrete(chatId);
     salvarSessoes();
@@ -444,7 +454,7 @@ function criarFluxo({
       }
       s.visto = Date.now();
       s.audiosFalhos = (s.audiosFalhos || 0) + 1;
-      if (s.audiosFalhos >= 2) return transferir(chatId);
+      if (s.audiosFalhos >= 2) return transferir(chatId, true, { motivo: 'áudio que o bot não entendeu' });
       await enviar(chatId, 'Não consegui ouvir seu áudio por aqui. 😕 Pode me escrever o que precisa?');
       if (s.etapa === 'menu') await menu(chatId);
       return;
@@ -455,7 +465,7 @@ function criarFluxo({
     // Cliente irritado ou reclamação séria: direto para uma pessoa
     if (!naoTexto && ent.ehIrritado(texto) && !(s && !expirou && s.etapa === 'suporte_desc')) {
       await enviar(chatId, 'Sinto muito pelo transtorno. 😔 Já estou te passando para uma pessoa da nossa equipe.');
-      return transferir(chatId, false);
+      return transferir(chatId, false, { motivo: 'cliente irritado ou reclamação' });
     }
 
     // "Obrigado", "ok", "👍" sem nada em andamento: só agradece, sem mandar menu de novo
@@ -490,11 +500,11 @@ function criarFluxo({
       const comprovante = RE_PAGAMENTO.test(legenda) || tipo === 'document' || noFinanceiro || (!legenda && !encaminhada);
       if (comprovante) await enviar(chatId, u.dentroDoHorario() ? MSG.comprovanteDentro : MSG.comprovanteFora());
       else await enviar(chatId, u.dentroDoHorario() ? MSG.imagemDentro : MSG.imagemFora());
-      return transferir(chatId, false);
+      return transferir(chatId, false, { motivo: comprovante ? 'mandou comprovante' : 'mandou foto', categoria: comprovante ? 'financeiro' : undefined });
     }
     // Outras mídias (vídeo, localização, contato): manda para o atendente
     if (naoTexto) {
-      await transferir(chatId);
+      await transferir(chatId, true, { motivo: 'mandou vídeo, contato ou localização' });
       return;
     }
 
@@ -538,7 +548,7 @@ function criarFluxo({
     // Pediu uma pessoa, ou algo que só uma pessoa resolve ("já paguei", "mudar de plano")
     const etapaDeTexto = ['suporte_desc', 'venda_local', 'venda_nome'].includes(s.etapa);
     if (t === '9' || ent.querAtendente(texto) || (!etapaDeTexto && ent.detectarIntencao(texto) === 'atendente')) {
-      await transferir(chatId);
+      await transferir(chatId, true, { motivo: 'pediu atendente no meio do atendimento', categoria: categoriaDe(s) });
       return;
     }
 
@@ -588,7 +598,7 @@ function criarFluxo({
     } catch (e) {
       log(`[erro] ${chatId}: ${e.message}`);
       await enviar(chatId, MSG.erroSistema);
-      await transferir(chatId, false);
+      await transferir(chatId, false, { motivo: 'erro no sistema do bot' });
     }
   }
 
@@ -618,7 +628,7 @@ function criarFluxo({
     if (s) { s.etapa = 'tec_menu'; delete s.tecOcorrencia; delete s.tecAlt; delete s.tecAuxOpcoes; delete s.tecRespOpcoes; }
     registrar(`[técnico] ${chatId}: ${motivo} - passou para a equipe`);
     await enviar(chatId, 'Recebi 👍 Passei para a equipe, em instantes alguém vê por aqui.');
-    return transferir(chatId, false);
+    return transferir(chatId, false, { motivo: `técnico: ${motivo}` });
   }
 
   async function receberTecnico(chatId, s, texto, { naoTexto, audioFalhou, tipo, lerImagem, encaminhada }) {
@@ -663,6 +673,13 @@ function criarFluxo({
     if (s.etapa === 'tec_online') return tecOnline(chatId, s, texto);
     if (s.etapa === 'tec_oc_contrato') return tecEscolherContratoOcorrencia(chatId, s, texto);
     if (s.etapa === 'tec_img_acao') return tecAcaoImagem(chatId, s, texto);
+    if (s.etapa === 'tec_oc_existe') {
+      const c = s.tecOcExiste;
+      delete s.tecOcExiste;
+      if (c && /^(1|s|sim|pode|abre|abrir|outra|quero)\b/.test(t)) { s.tecOcConfirmada = c.id; return pedirAuxiliar(chatId, s, c); }
+      s.etapa = 'tec_menu';
+      return menuTecnico(chatId, 'Certo, não abri outra. O que você precisa? 👇');
+    }
     if (s.etapa === 'tec_alt_contrato') return tecAltContrato(chatId, s, texto);
     if (s.etapa === 'tec_alt_campo') return tecAltCampo(chatId, s, texto);
     if (s.etapa === 'tec_alt_ref') return tecAltReferencia(chatId, s, texto);
@@ -678,7 +695,7 @@ function criarFluxo({
     if (t === 'u') { s.etapa = 'tec_alt_contrato'; delete s.tecContratos; return enviar(chatId, `✏️ *Atualizar telefone ou ponto de referência*\n${PEDIR_CLIENTE}`); }
     if (t === 'a') {
       await enviar(chatId, 'Certo! Já avisei a equipe, em instantes alguém fala com você por aqui. 😊');
-      return transferir(chatId, false);
+      return transferir(chatId, false, { motivo: 'técnico pediu a equipe' });
     }
     return menuTecnico(chatId, 'Não entendi 😅 Escolha uma das opções 👇');
   }
@@ -840,6 +857,19 @@ function criarFluxo({
 
   // Antes da descrição: quem foi o técnico auxiliar (os outros técnicos do bot, ou nenhum)
   async function pedirAuxiliar(chatId, s, c) {
+    // Já tem ocorrência aberta nesse contrato? Avisa ANTES de pedir técnico, auxiliar e descrição
+    if (!s.tecOcConfirmada || String(s.tecOcConfirmada) !== String(c.id)) {
+      const abertas = await Promise.race([sgp.ocorrenciasAbertas(c.id), new Promise((r) => setTimeout(() => r([]), 8000))]).catch(() => []);
+      if (abertas.length) {
+        s.etapa = 'tec_oc_existe';
+        s.tecOcExiste = c;
+        registrar(`[técnico] ${chatId}: ID ${c.id} já tem ${abertas.length} ocorrência(s) aberta(s) - perguntando se abre outra`);
+        return enviar(chatId, `⚠️ O ID *${c.id}*${c.nome ? ` - ${nomeBonito(c.nome)}` : ''} já tem ocorrência aberta:\n\n` +
+          abertas.slice(0, 3).map((o) => `• Nº *${o.numero}*${o.status ? ` (${o.status})` : ''}${o.data ? ` - aberta em ${u.dataBR(o.data)}` : ''}${o.conteudo ? `\n  _${o.conteudo}_` : ''}`).join('\n') +
+          '\n\nQuer abrir *outra* mesmo assim? 👇\n\n*1* - Sim, abrir outra\n*2* - Não, voltar ao menu');
+      }
+    }
+    delete s.tecOcConfirmada;
     const eu = (await tecnicoDe(chatId)) || {};
     s.tecOcorrencia = {
       contrato: c.id, nome: c.nome || '', auxiliares: [],
@@ -1043,6 +1073,7 @@ function criarFluxo({
     registrar(`[técnico] não consegui abrir ocorrência no SGP (contrato ${oc.contrato}): ${r.mensagem || 'sem detalhe'}`);
     const resumo = ['🛠️ *Ocorrência do técnico (abrir no SGP)*', `ID SGP: ${oc.contrato}${oc.nome ? ` - ${oc.nome}` : ''}`, `Descrição: ${descricao.slice(0, 1000)}`, `Técnico: ${[tec.nome, numero ? fone(numero) : ''].filter(Boolean).join(' - ') || chatId}`].join('\n');
     await aoOcorrencia(chatId, resumo, 'tecnico').catch((e) => log(`[erro ao avisar equipe] ${e.message}`));
+    await aoPendencia(chatId, `${resumo}\nMotivo do SGP: ${r.mensagem || 'sem detalhe'}`, 'ocorrência para abrir manualmente no SGP').catch(() => {});
     await enviar(chatId, `Não consegui abrir a ocorrência direto no SGP agora${r.mensagem ? ` (_${r.mensagem}_)` : ''}. 😕\nDeixei o resumo registrado aqui para a equipe abrir manualmente:\n\n${resumo}`);
     return menuTecnico(chatId, 'Precisa de mais alguma coisa? 👇');
   }
@@ -1115,7 +1146,7 @@ function criarFluxo({
     }
     if (t === 'a') {
       await enviar(chatId, 'Certo! Já avisei a equipe, em instantes alguém fala com você por aqui. 😊');
-      return transferir(chatId, false);
+      return transferir(chatId, false, { motivo: 'equipe pediu atendente' });
     }
     return menuEquipe(chatId, 'Não entendi 😅 Escolha uma das opções 👇');
   }
@@ -1416,7 +1447,7 @@ function criarFluxo({
 
   async function comecar(chatId, s, intencao, texto) {
     s.tentativas = 0;
-    if (intencao === 'atendente') return transferir(chatId);
+    if (intencao === 'atendente') return transferir(chatId, true, { motivo: texto ? 'pediu atendente' : 'escolheu atendente no menu' });
     if (intencao === 'contratar') {
       s.etapa = 'venda_local';
       s.venda = { mensagem: String(texto || '').slice(0, 300) };
@@ -1503,7 +1534,7 @@ function criarFluxo({
     ].filter(Boolean).join('\n');
     log(`[venda] ${chatId}\n${resumo}`);
     await aoOcorrencia(chatId, resumo, 'venda').catch((e) => log(`[erro ao avisar equipe] ${e.message}`));
-    return transferir(chatId, false);
+    return transferir(chatId, false, { motivo: 'quer contratar', categoria: 'contratar' });
   }
 
   async function finalizar(chatId) {
@@ -1519,11 +1550,11 @@ function criarFluxo({
     const escolha = { 1: 'financeiro', 2: 'suporte', 3: 'contratar', 4: 'atendente' }[t] || ent.detectarIntencao(t);
     if (!escolha && docMenu) return menu(chatId, 'Recebi seu CPF/CNPJ ✅ Agora me diz: o que você precisa? 👇');
     if (escolha) return comecar(chatId, s, escolha, t.length > 2 ? t : '');
-    if (t === '4') return transferir(chatId);
+    if (t === '4') return transferir(chatId, true, { motivo: 'escolheu falar com atendente' });
 
     // Cliente escreveu outra coisa: tenta mais uma vez, depois passa para humano
     s.tentativas++;
-    if (s.tentativas >= 2) return transferir(chatId);
+    if (s.tentativas >= 2) return transferir(chatId, true, { motivo: 'bot não entendeu a resposta' });
     return menu(chatId, 'Não entendi 😅 Toque em uma das opções 👇');
   }
 
@@ -1532,7 +1563,7 @@ function criarFluxo({
     const valido = (doc.length === 11 && u.cpfValido(doc)) || (doc.length === 14 && u.cnpjValido(doc));
     if (!valido) {
       s.tentativas++;
-      if (s.tentativas >= 3) return transferir(chatId);
+      if (s.tentativas >= 3) return transferir(chatId, true, { motivo: 'CPF/CNPJ inválido 3 vezes' });
       return enviar(chatId, MSG.docInvalido);
     }
     return carregarCadastro(chatId, s, doc);
@@ -1544,13 +1575,13 @@ function criarFluxo({
     if (!podeConsultar(chatId, doc)) {
       log(`[lgpd] ${chatId} passou do limite de ${cfg.limiteDocsDia} CPFs/CNPJs diferentes no dia`);
       await enviar(chatId, 'Por segurança, não consigo consultar mais cadastros por aqui hoje. Vou te passar para um atendente. 🔒');
-      return transferir(chatId, false);
+      return transferir(chatId, false, { motivo: 'limite de consultas de CPF no dia' });
     }
     const contratos = await sgp.consultarCliente(doc);
     if (!contratos.length) {
       s.etapa = 'doc';
       s.tentativas++;
-      if (s.tentativas >= 3) return transferir(chatId);
+      if (s.tentativas >= 3) return transferir(chatId, true, { motivo: 'CPF/CNPJ não encontrado no SGP' });
       return enviar(chatId, MSG.naoEncontrado);
     }
 
@@ -1747,7 +1778,7 @@ function criarFluxo({
       ].join('\n');
       log(`[acordo] ${chatId}\n${resumo}`);
       await aoOcorrencia(chatId, resumo, 'acordo').catch((e) => log(`[erro ao avisar equipe] ${e.message}`));
-      return transferir(chatId, false);
+      return transferir(chatId, false, { motivo: 'pediu acordo de débitos', categoria: 'financeiro' });
     }
     if (t === 'b') {
       s.etapa = 'financeiro';
@@ -1889,7 +1920,7 @@ function criarFluxo({
     ].filter(Boolean).join('\n');
     log(`[ocorrência] ${chatId}\n${resumo}`);
     await aoOcorrencia(chatId, resumo).catch((e) => log(`[erro ao avisar equipe] ${e.message}`));
-    return transferir(chatId, false);
+    return transferir(chatId, false, { motivo: 'ocorrência de suporte', categoria: 'suporte' });
   }
 
   function perguntarContrato(chatId, s, pergunta) {
@@ -1999,7 +2030,7 @@ function criarFluxo({
       chatId,
       `Não consegui liberar sua internet por aqui${r.mensagem ? ` (_${r.mensagem}_)` : ''}. Vou te passar para um atendente. 🙏`
     );
-    return transferir(chatId, false);
+    return transferir(chatId, false, { motivo: 'liberação de confiança negada', categoria: 'financeiro' });
   }
 
   // Depois de reiniciar, volta a agendar os lembretes das conversas que estavam no meio
