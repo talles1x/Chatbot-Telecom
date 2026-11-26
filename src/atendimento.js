@@ -33,6 +33,8 @@ const PADRAO = {
   // Quem atende no painel (nomes cadastrados no próprio painel; ficam só em dados/, nunca no GitHub)
   atendentes: [],
   assinar: false,
+  nomesSgp: {},     // chatId -> nome do cliente no SGP (achado pela ficha)
+  transcricoes: {}, // id da mensagem de áudio -> texto transcrito
 };
 
 function criarAtendimento({ aoMudar = () => {} } = {}) {
@@ -64,10 +66,21 @@ function criarAtendimento({ aoMudar = () => {} } = {}) {
 
   // ---------- Fila ----------
   // Cliente passou para o atendente (pelo bot ou porque o atendente assumiu)
-  function abrir(chatId, { motivo = '', nome = '', numero = '' } = {}) {
+  // Etiqueta automática pelo caminho que o cliente fez no bot (só se a etiqueta existir)
+  const sem = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const ETIQUETA_DA_CATEGORIA = { financeiro: ['financeiro'], suporte: ['suporte'], contratar: ['comercial', 'instalacao'], instalacao: ['instalacao', 'comercial'] };
+  function etiquetarPelaCategoria(chatId, categoria) {
+    const alvos = ETIQUETA_DA_CATEGORIA[categoria] || [];
+    const etq = alvos.map((a) => dados.etiquetas.find((e) => sem(e.nome) === a)).find(Boolean);
+    if (!etq) return;
+    const atuais = dados.etiquetasContato[chatId] || [];
+    if (!atuais.includes(etq.nome)) dados.etiquetasContato[chatId] = [...atuais, etq.nome];
+  }
+  function abrir(chatId, { motivo = '', nome = '', numero = '', categoria = '' } = {}) {
     if (dados.tickets[chatId]) return dados.tickets[chatId];
-    const t = { protocolo: protocolo(), chatId, nome, numero, status: 'aguardando', motivo, abertoEm: Date.now(), primeiraRespostaEm: null, ultimaClienteEm: Date.now() };
+    const t = { protocolo: protocolo(), chatId, nome, numero, status: 'aguardando', motivo, categoria: categoria || undefined, abertoEm: Date.now(), primeiraRespostaEm: null, ultimaClienteEm: Date.now() };
     dados.tickets[chatId] = t;
+    if (categoria) etiquetarPelaCategoria(chatId, categoria);
     salvar({ tipo: 'fila', chat: chatId, novo: true });
     return t;
   }
@@ -105,6 +118,28 @@ function criarAtendimento({ aoMudar = () => {} } = {}) {
     return fim;
   }
   const ticket = (chatId) => dados.tickets[chatId] || null;
+
+  // ---------- Nome do SGP e transcrição dos áudios ----------
+  function limitar(obj, max) {
+    const chaves = Object.keys(obj);
+    for (let i = 0; i < chaves.length - max; i++) delete obj[chaves[i]];
+  }
+  function lembrarNomeSgp(chatId, nome) {
+    nome = String(nome || '').trim();
+    if (!chatId || !nome || (dados.nomesSgp || {})[chatId] === nome) return;
+    dados.nomesSgp = dados.nomesSgp || {};
+    delete dados.nomesSgp[chatId];
+    dados.nomesSgp[chatId] = nome.slice(0, 80);
+    limitar(dados.nomesSgp, 5000);
+    salvar();
+  }
+  function guardarTranscricao(msgId, texto) {
+    if (!msgId || !texto) return;
+    dados.transcricoes = dados.transcricoes || {};
+    dados.transcricoes[msgId] = String(texto).slice(0, 4000);
+    limitar(dados.transcricoes, 3000);
+    salvar();
+  }
   const fila = () => Object.values(dados.tickets).sort((a, b) => a.abertoEm - b.abertoEm);
 
   // ---------- Etiquetas e notas ----------
@@ -243,6 +278,9 @@ function criarAtendimento({ aoMudar = () => {} } = {}) {
     etiquetas: () => dados.etiquetas,
     respostas: () => dados.respostas,
     textoEncerramento: () => dados.textoEncerramento,
+    lembrarNomeSgp, guardarTranscricao,
+    nomeSgp: (chatId) => (dados.nomesSgp || {})[chatId] || '',
+    transcricao: (msgId) => (dados.transcricoes || {})[msgId] || '',
     atendentes: () => dados.atendentes || [],
     assinar: () => !!dados.assinar,
     agendadas: () => [...dados.agendadas].sort((a, b) => a.quando - b.quando),
