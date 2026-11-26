@@ -25,7 +25,32 @@ const CAMPOS = [
   { chave: 'PAUSA_HUMANO_HORAS', rotulo: 'Horas que o bot fica pausado quando o atendente assume', ajuda: 'Ex.: 3' },
 ];
 
-const TIPOS = { image: '📷 Foto', audio: '🎤 Áudio', ptt: '🎤 Áudio', video: '🎬 Vídeo', document: '📄 Documento', sticker: '🙂 Figurinha', location: '📍 Localização', vcard: '👤 Contato' };
+const TIPOS = { image: '📷 Foto', audio: '🎤 Áudio', ptt: '🎤 Áudio', video: '🎬 Vídeo', document: '📄 Documento', sticker: '🙂 Figurinha', location: '📍 Localização', vcard: '👤 Contato', multi_vcard: '👤 Contatos', reaction: '👍 Reação', revoked: '🚫 Mensagem apagada', call_log: '📞 Ligação', poll_creation: '📊 Enquete', ciphertext: '⏳ Aguardando mensagem', gif: '🎬 GIF' };
+// Linhas técnicas que só poluem o log do painel (status, grupos, chegada de cada mensagem)
+const LOG_RUIDO = /\[ignorada\]|\[chegou\]|status@broadcast/;
+const MIDIAS = ['image', 'video', 'sticker', 'ptt', 'audio', 'document', 'gif'];
+const pareceBase64 = (t) => t.length > 120 && /^[A-Za-z0-9+/=\s]+$/.test(t.slice(0, 400));
+// Texto que pode ser mostrado de uma mensagem (sem base64 de miniatura, sem VCARD cru)
+function textoDaMensagem(m) {
+  const corpo = String((m && m.body) || '');
+  const tipo = m && m.type;
+  if (/^BEGIN:VCARD/i.test(corpo)) {
+    const nome = (corpo.match(/^FN:(.*)$/im) || [])[1];
+    return `👤 Contato${nome ? `: ${nome.trim()}` : ''}`;
+  }
+  if (MIDIAS.includes(tipo) || pareceBase64(corpo)) {
+    const legenda = tipo !== 'document' && !pareceBase64(corpo) && !['ptt', 'audio', 'sticker'].includes(tipo) ? corpo.trim() : '';
+    return legenda;
+  }
+  return corpo;
+}
+function previa(m) {
+  if (!m) return '';
+  const texto = textoDaMensagem(m).replace(/\s+/g, ' ').trim();
+  const rotulo = TIPOS[m.type] || (pareceBase64(String(m.body || '')) ? TIPOS.image : '');
+  if (MIDIAS.includes(m.type) || /^👤/.test(texto)) return texto && !/^👤/.test(texto) ? `${rotulo} ${texto}`.slice(0, 90) : (texto || rotulo);
+  return (texto || rotulo || '…').slice(0, 90);
+}
 
 function hojeArquivo() {
   const dia = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Fortaleza' });
@@ -70,7 +95,7 @@ function painelDoDia() {
   // Por hora: conversas novas de cada hora do dia
   const porHora = Array(24).fill(0);
   for (const l of linhas) if (METRICAS[0].re.test(l)) porHora[Number(l.slice(11, 13)) || 0]++;
-  return { metricas: contagem, porHora, log: linhas.filter(Boolean).slice(-200) };
+  return { metricas: contagem, porHora, log: linhas.filter((l) => l && !LOG_RUIDO.test(l)).slice(-200) };
 }
 
 // Fotos de perfil dos clientes (guardadas na memória por 6h; sem foto/privada = iniciais no painel)
@@ -111,6 +136,19 @@ function buscarFoto(client, chatId) {
 
 function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, atendimento, sgp, estado, MessageMedia, enviarComoBot }) {
   const nomes = new Map(); // chatId -> nome do contato (para a busca e a fila)
+  // Números da equipe (técnicos, caixas, atendentes, avisos): ficam no filtro "Equipe", fora dos clientes
+  const numerosEquipe = new Set([
+    ...cfg.tecnicos.map((t) => t.numero), ...(cfg.tecnicoAdmins || []), ...(cfg.atendentesNumeros || []),
+    ...(cfg.caixas || []).flatMap((c) => c.numeros || []), cfg.numeroEquipe, cfg.numeroComercial,
+  ].map((n) => String(n || '').replace(/\D/g, '').slice(-8)).filter((n) => n.length === 8));
+  const numeroDaEquipe = new Map(); // chatId -> bool (o número real do @lid é resolvido uma vez)
+  function ehEquipe(id) {
+    if (numeroDaEquipe.has(id)) return numeroDaEquipe.get(id);
+    const direto = String(id).endsWith('@c.us') ? String(id).split('@')[0] : '';
+    if (direto) { const r = numerosEquipe.has(direto.slice(-8)); numeroDaEquipe.set(id, r); return r; }
+    Promise.resolve(numeroDeChat(id)).then((n) => numeroDaEquipe.set(id, numerosEquipe.has(String(n || '').replace(/\D/g, '').slice(-8)))).catch(() => {});
+    return false;
+  }
   const porta = Number(process.env.PAINEL_PORTA || 3210);
   const fotoDe = (id) => (id && /@(c\.us|lid)$/.test(id) ? buscarFoto(client, id) : Promise.resolve(null));
   if (/^(0|false|nao|não)$/i.test(process.env.PAINEL || '')) return null;
@@ -135,7 +173,7 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       const fluxoArq = fs.createReadStream(arq, { start: tamanho, end: st.size - 1, encoding: 'utf-8' });
       let novo = '';
       fluxoArq.on('data', (c) => { novo += c; });
-      fluxoArq.on('end', () => { novo.split('\n').filter(Boolean).forEach((l) => emitir('log', l)); });
+      fluxoArq.on('end', () => { novo.split('\n').filter((l) => l && !LOG_RUIDO.test(l)).forEach((l) => emitir('log', l)); });
       tamanho = st.size;
     });
   }, 1000);
@@ -160,16 +198,21 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       const id = c.id._serialized;
       const ultima = c.lastMessage || {};
       if (c.name) nomes.set(id, c.name);
+      const numero = await Promise.resolve(numeroDeChat(id)).catch(() => '');
+      if (numero) numeroDaEquipe.set(id, numerosEquipe.has(String(numero).replace(/\D/g, '').slice(-8)));
       return {
         id,
         nome: c.name || '',
         ticket: atendimento.ticket(id),
         etiquetas: atendimento.etiquetasDe(id),
-        numero: await Promise.resolve(numeroDeChat(id)).catch(() => ''),
-        ultima: ultima.body && !['ptt', 'audio', 'sticker'].includes(ultima.type) ? String(ultima.body).slice(0, 90) : (TIPOS[ultima.type] || ''),
+        numero,
+        ultima: previa(ultima),
         deMim: Boolean(ultima.fromMe),
         hora: c.timestamp || 0,
-        naoLidas: c.unreadCount || 0,
+        naoLidas: Math.max(0, c.unreadCount || 0), // o WhatsApp usa -1 para "marcada como não lida"
+        marcadaNaoLida: (c.unreadCount || 0) < 0,
+        equipe: ehEquipe(id),
+        nomeSgp: atendimento.nomeSgp(id),
         pausado: fluxo.estaPausado(id),
       };
     }));
@@ -182,6 +225,9 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       nome: chat.name || '',
       numero: await Promise.resolve(numeroDeChat(id)).catch(() => ''),
       pausado: fluxo.estaPausado(id),
+      pausaAte: fluxo.estaPausado(id) ? estado.pausaAte(id) : null,
+      equipe: ehEquipe(id),
+      nomeSgp: atendimento.nomeSgp(id),
       ticket: atendimento.ticket(id),
       etiquetas: atendimento.etiquetasDe(id),
       notas: atendimento.notasDe(id),
@@ -191,8 +237,9 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
         arquivo: m._data && (m._data.filename || ''),
         mime: m._data && (m._data.mimetype || ''),
         deMim: m.fromMe,
-        corpo: m.body || '',
+        corpo: textoDaMensagem(m),
         tipo: m.type,
+        transcricao: ['ptt', 'audio'].includes(m.type) && m.id ? atendimento.transcricao(m.id._serialized) : undefined,
         hora: m.timestamp,
         ack: m.ack,
       })),
@@ -204,16 +251,25 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
     const lembrado = estado.cliente(id) || {};
     const busca = String(docInformado || '').replace(/\D/g, '');
     let contratos = [];
+    let peloTelefone = false;
     if (busca && busca.length <= 7) contratos = await sgp.consultarContrato(busca);
     else if (busca || lembrado.doc) contratos = await sgp.consultarCliente(busca || lembrado.doc);
-    if (!contratos.length) return { encontrado: false, doc: busca || lembrado.doc || '' };
+    // Sem CPF: tenta achar pelo número do WhatsApp (só aceita se o telefone estiver no cadastro)
+    if (!contratos.length && !busca) {
+      const numero = await Promise.resolve(numeroDeChat(id)).catch(() => '');
+      contratos = await sgp.consultarTelefone(numero).catch(() => []);
+      peloTelefone = contratos.length > 0;
+    }
+    if (!contratos.length) return { encontrado: false, doc: busca || lembrado.doc || '', tentouTelefone: !busca };
     const escolhido = contratos.find((c) => String(c.id) === String(lembrado.contrato)) || contratos[0];
     const [faturas, online] = await Promise.all([
       sgp.titulosAbertos(busca.length > 7 ? busca : (lembrado.doc || ''), escolhido.id).catch(() => []),
       sgp.verificarAcesso(escolhido.id).catch(() => null),
     ]);
+    atendimento.lembrarNomeSgp(id, escolhido.nome);
     return {
       encontrado: true,
+      peloTelefone,
       doc: busca || lembrado.doc || '',
       contrato: escolhido,
       outros: contratos.filter((c) => c !== escolhido).map((c) => ({ id: c.id, status: c.status, endereco: c.endereco })),
@@ -330,12 +386,30 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       if (rota === 'GET /api/ficha') {
         return responder(res, 200, await ficha(url.searchParams.get('id'), url.searchParams.get('doc')).catch((e) => ({ encontrado: false, erro: e.message })));
       }
+      // Ações do atendente na ficha (cliente já identificado)
+      if (rota === 'POST /api/liberar') {
+        const { contrato, atendente } = await corpo(req);
+        if (!contrato) return responder(res, 400, { erro: 'faltou o contrato' });
+        const r = await sgp.liberarPromessa(contrato);
+        registrar(`[painel] liberação de confiança do contrato ${contrato} pedida${atendente ? ` por ${String(atendente).trim()}` : ''}: ${r.ok ? 'liberada' : `negada ${r.mensagem || ''}`}`);
+        return responder(res, 200, r);
+      }
+      if (rota === 'POST /api/chamado') {
+        const { id, contrato, texto, atendente } = await corpo(req);
+        if (!contrato || !String(texto || '').trim()) return responder(res, 400, { erro: 'faltou o contrato ou a descrição' });
+        const numero = await Promise.resolve(numeroDeChat(id)).catch(() => '');
+        const conteudo = `${String(texto).trim()}\n\nAberto pelo painel${atendente ? ` por ${String(atendente).trim()}` : ''}.`;
+        const r = await sgp.criarChamado(contrato, conteudo, { contatoNome: atendimento.nomeSgp(id) || nomes.get(id) || '', contatoTelefone: numero });
+        registrar(`[painel] ocorrência no contrato ${contrato}${atendente ? ` por ${String(atendente).trim()}` : ''}: ${r.ok ? `aberta ${r.protocolo || ''}` : `não abriu ${r.mensagem || ''}`}`);
+        if (r.ok) atendimento.anotar(id, `Ocorrência aberta no SGP${r.protocolo ? ` (protocolo ${r.protocolo})` : ''}: ${String(texto).trim()}`, atendente);
+        return responder(res, 200, r);
+      }
       if (rota === 'GET /api/busca') {
         const achados = atendimento.buscar(url.searchParams.get('q') || '');
         return responder(res, 200, achados.map((a) => ({ ...a, nome: nomes.get(a.chatId) || '' })));
       }
       if (rota === 'GET /api/fila') {
-        return responder(res, 200, atendimento.fila().map((t) => ({ ...t, nome: t.nome || nomes.get(t.chatId) || '', etiquetas: atendimento.etiquetasDe(t.chatId) })));
+        return responder(res, 200, atendimento.fila().map((t) => ({ ...t, nome: t.nome || nomes.get(t.chatId) || atendimento.nomeSgp(t.chatId) || '', etiquetas: atendimento.etiquetasDe(t.chatId) })));
       }
       if (rota === 'GET /api/relatorio') {
         return responder(res, 200, atendimento.relatorio(Math.min(90, Math.max(1, Number(url.searchParams.get('dias')) || 7))));

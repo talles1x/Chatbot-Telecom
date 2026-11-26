@@ -210,6 +210,24 @@
   #menu-quem button.atual .mini { background: var(--azul); color: #fff; }
   #menu-quem .marca-ok { margin-left: auto; color: var(--azul-texto); }
   .por-quem { color: var(--azul-texto); font-weight: 600; }
+  .badge.atrasado { background: var(--erro-fundo); color: var(--erro); animation: pulsar 2s ease-in-out infinite; }
+  @keyframes pulsar { 50% { opacity: .65; } }
+  .marcada { width: 10px; height: 10px; border-radius: 50%; background: var(--azul); flex: none; }
+  .item .sgp { font-size: 11px; color: var(--texto-3); font-weight: 500; margin-left: 4px; }
+  .faixa-bot { display: flex; align-items: center; gap: 8px; padding: 7px 16px; font-size: 12.5px; background: var(--azul-mclaro); color: var(--azul-texto); border-bottom: 1px solid var(--borda); }
+  .faixa-bot b { font-weight: 650; }
+  .transcricao { display: block; font-size: 12.5px; color: var(--texto-2); background: var(--superficie-2); border-radius: 10px; padding: 6px 10px; margin: 2px 0 4px; white-space: pre-wrap; max-width: 300px; }
+  .transcricao::before { content: "📝 "; }
+  .acoes-ficha { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .fatura .botao { height: 24px; padding: 0 9px; font-size: 12px; }
+  .carregando { margin: auto; display: grid; place-items: center; gap: 10px; color: var(--texto-2); }
+  .carregando i { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--borda); border-top-color: var(--azul); animation: girar .8s linear infinite; }
+  @keyframes girar { to { transform: rotate(360deg); } }
+  details.log-dev > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 16px 20px; font-weight: 650; }
+  details.log-dev > summary::-webkit-details-marker { display: none; }
+  details.log-dev > summary::after { content: "Mostrar"; margin-left: auto; font-size: 12px; font-weight: 600; color: var(--azul-texto); }
+  details.log-dev[open] > summary::after { content: "Esconder"; }
+  details.log-dev[open] > summary { border-bottom: 1px solid var(--borda); }
   main { flex: 1; min-height: 0; display: flex; }
   .aba { display: none; flex: 1; min-height: 0; min-width: 0; }
   .aba.ativa { display: flex; }
@@ -229,7 +247,9 @@
   .busca { position: relative; }
   .busca .ic { position: absolute; left: 14px; top: 11px; color: var(--texto-3); }
   .busca .campo { padding-left: 40px; border-radius: var(--r-pilula); background: var(--superficie-2); }
-  .filtros { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .filtros { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filtro-etq { height: 30px; border: 1px solid var(--borda); background: var(--superficie); border-radius: var(--r-pilula); padding: 0 10px; font-size: 12px; font-weight: 600; color: var(--texto-2); cursor: pointer; outline: none; }
+  .filtro-etq.ativo { background: var(--azul); border-color: var(--azul); color: #fff; }
   .filtros::-webkit-scrollbar { display: none; }
   .filtros button { flex: none; height: 30px; border: 1px solid var(--borda); background: var(--superficie); padding: 0 11px; border-radius: var(--r-pilula); cursor: pointer; font-size: 12px; font-weight: 600; color: var(--texto-2); }
   .filtros button:hover { border-color: var(--borda-forte); color: var(--texto); }
@@ -488,7 +508,7 @@
         <div class="bloco"><div class="cab"><h3>Por atendente</h3><span class="msg acao">quem assumiu ou respondeu pelo painel</span></div><div class="corpo"><div class="barras-h" id="rel-atendentes"></div></div></div>
         <div class="titulo-pag" style="margin-top:8px"><div><h2>Hoje pelo bot</h2><p id="dia-sub">Contado no log de hoje do bot.</p></div></div>
         <div class="kpis" id="dia-kpis"></div>
-        <div class="bloco"><div class="cab"><h3>Log ao vivo</h3><span class="msg acao">atualiza sozinho</span></div><div class="corpo"><div id="log" style="font:12px/1.6 var(--mono);background:var(--superficie-2);border-radius:var(--r-peq);padding:10px 12px;height:320px;overflow-y:auto;white-space:pre-wrap;word-break:break-word"></div></div></div>
+        <details class="bloco log-dev"><summary>Log técnico do bot <span class="msg" style="font-weight:500">para conferir problemas · atualiza sozinho</span></summary><div class="corpo"><div id="log" style="font:12px/1.6 var(--mono);background:var(--superficie-2);border-radius:var(--r-peq);padding:10px 12px;height:320px;overflow-y:auto;white-space:pre-wrap;word-break:break-word"></div></div></details>
       </div></div>
     </section>
 
@@ -505,7 +525,7 @@
         </div>
         <div class="secao ativa" id="sec-respostas">
           <div class="bloco">
-            <div class="cab"><h3>Respostas rápidas</h3><span class="msg acao">botões em cima da caixa de texto e atalho <b>/</b></span></div>
+            <div class="cab"><h3>Respostas rápidas</h3><span class="msg acao">botões em cima da caixa de texto e atalho <b>/</b> · use <b>{nome}</b>, <b>{protocolo}</b> e <b>{atendente}</b></span></div>
             <div class="corpo" id="lista-respostas"></div>
             <div class="barra-acoes"><button class="botao" id="add-resposta"><svg class="ic" data-i="mais"></svg>Nova resposta</button><button class="botao primario" id="salvar-respostas">Salvar</button></div>
           </div>
@@ -572,7 +592,7 @@
 
 <div class="zoom" id="zoom"><img alt=""></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
-<div class="modal-fundo" id="modal"><div class="modal" role="dialog" aria-modal="true"><h3 id="modal-titulo"></h3><p id="modal-texto"></p><div class="acoes"><button class="botao" id="modal-nao">Cancelar</button><button class="botao primario" id="modal-sim">Confirmar</button></div></div></div>
+<div class="modal-fundo" id="modal"><div class="modal" role="dialog" aria-modal="true"><h3 id="modal-titulo"></h3><p id="modal-texto"></p><div id="modal-area" style="padding:0 20px 18px" hidden><textarea class="campo" id="modal-campo" rows="4"></textarea></div><div class="acoes"><button class="botao" id="modal-nao">Cancelar</button><button class="botao primario" id="modal-sim">Confirmar</button></div></div></div>
 
 <script>
 // ================= Ícones (traço único, 24x24) =================
@@ -731,16 +751,25 @@ function toast(texto, tipo = 'info') {
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 320); }, tipo === 'erro' ? 6000 : 3200);
 }
 // Confirmação
-function confirmar(titulo, texto, { botao = 'Confirmar', perigo = false } = {}) {
+function confirmar(titulo, texto, { botao = 'Confirmar', perigo = false, campo = null } = {}) {
   return new Promise((ok) => {
     $('#modal-titulo').textContent = titulo;
     $('#modal-texto').textContent = texto;
+    $('#modal-area').hidden = campo === null;
+    $('#modal-campo').value = '';
+    $('#modal-campo').placeholder = campo || '';
     $('#modal-sim').textContent = botao;
     $('#modal-sim').className = `botao ${perigo ? 'perigo cheio' : 'primario'}`;
     $('#modal').classList.add('aberto');
     $('#modal-sim').focus();
     const fechar = (v) => { $('#modal').classList.remove('aberto'); $('#modal-sim').onclick = $('#modal-nao').onclick = null; ok(v); };
-    $('#modal-sim').onclick = () => fechar(true);
+    $('#modal-sim').onclick = () => {
+      if (campo === null) return fechar(true);
+      const v = $('#modal-campo').value.trim();
+      if (!v) { $('#modal-campo').focus(); return; }
+      fechar(v);
+    };
+    if (campo !== null) setTimeout(() => $('#modal-campo').focus(), 50);
     $('#modal-nao').onclick = () => fechar(false);
     $('#modal').onclick = (e) => { if (e.target.id === 'modal') fechar(false); };
   });
@@ -833,7 +862,8 @@ window.addEventListener('resize', () => { clearTimeout(window.__tl); window.__tl
 let conversas = [];
 let aberta = null;
 let abaAtual = 'inicio';
-let filtro = 'todas';
+let filtro = 'clientes';
+let conversaAtual = null;
 let config = { respostas: [], etiquetas: [], textoEncerramento: '' };
 let anexo = null;
 let empresa = '';
@@ -942,7 +972,7 @@ async function carregarInicio() {
   }
   $('#inicio-fila').innerHTML = agu.length ? `<table class="tabela">${agu.slice(0, 6).map((t) => {
     const e = Date.now() - t.abertoEm;
-    return `<tr class="clicavel" data-id="${esc(t.chatId)}"><td><b>${esc(t.nome || fone(t.numero) || 'Cliente')}</b><div class="sec">${t.protocolo}</div></td><td style="text-align:right"><span class="badge ${e > 600000 ? 'aguardando' : 'neutro'}">${duracao(e)}</span></td></tr>`;
+    return `<tr class="clicavel" data-id="${esc(t.chatId)}"><td><b>${esc(t.nome || fone(t.numero) || 'Cliente')}</b><div class="sec">${esc(t.motivo || t.protocolo)}</div></td><td style="text-align:right"><span class="badge ${e > 600000 ? 'aguardando' : 'neutro'}">${duracao(e)}</span></td></tr>`;
   }).join('')}</table>` : `<div class="vazio"><div class="ico-grande">${ic('check')}</div><b>Ninguém esperando</b>Quando um cliente pedir atendente, ele aparece aqui.</div>`;
   $$('#inicio-fila tr.clicavel').forEach((tr) => tr.addEventListener('click', () => { abrirAba('conversas'); abrirConversa(tr.dataset.id); }));
   $('#inicio-semana').innerHTML = rel ? `<div class="kpis" style="margin:0;grid-template-columns:1fr 1fr">
@@ -962,11 +992,25 @@ async function carregarConfigAtendimento() {
   desenharFiltros();
   desenharQuem();
 }
+function passaFiltro(c, f) {
+  if (f === 'aguardando') return c.ticket && c.ticket.status === 'aguardando';
+  if (f === 'atendimento') return c.ticket && c.ticket.status === 'atendimento';
+  if (f === 'bot') return !c.pausado && !c.equipe;
+  if (f === 'encerradas') return !c.ticket && c.deMim && !c.equipe; // última mensagem foi nossa e não há atendimento aberto
+  if (f === 'equipe') return c.equipe;
+  if (f === 'clientes') return !c.equipe;
+  if (f.startsWith('etq:')) return (c.etiquetas || []).includes(f.slice(4));
+  return true;
+}
 function desenharFiltros() {
-  const fixos = [['todas', 'Todas'], ['aguardando', 'Aguardando'], ['atendimento', 'Em atendimento'], ['bot', 'Com o bot']];
-  $('#filtros').innerHTML = [...fixos.map(([v, t]) => `<button data-f="${v}" class="${filtro === v ? 'ativo' : ''}">${t}</button>`),
-    ...config.etiquetas.map((e) => `<button data-f="etq:${esc(e.nome)}" class="${filtro === `etq:${e.nome}` ? 'ativo' : ''}">${esc(e.nome)}</button>`)].join('');
+  const n = (f) => conversas.filter((c) => passaFiltro(c, f)).length;
+  const fixos = [['clientes', 'Clientes'], ['aguardando', `Aguardando${n('aguardando') ? ` · ${n('aguardando')}` : ''}`], ['atendimento', 'Em atendimento'], ['bot', 'Com o bot'], ['encerradas', 'Encerradas'], ['equipe', 'Equipe']];
+  const etqAtiva = filtro.startsWith('etq:');
+  $('#filtros').innerHTML = fixos.map(([v, t]) => `<button data-f="${v}" class="${filtro === v ? 'ativo' : ''}">${t}</button>`).join('') +
+    (config.etiquetas.length ? `<select class="filtro-etq${etqAtiva ? ' ativo' : ''}" title="Filtrar por etiqueta"><option value="">Etiqueta…</option>${config.etiquetas.map((e) => `<option value="etq:${esc(e.nome)}"${filtro === `etq:${e.nome}` ? ' selected' : ''}>${esc(e.nome)}</option>`).join('')}</select>` : '');
   $$('#filtros button').forEach((b) => b.addEventListener('click', () => { filtro = b.dataset.f; desenharFiltros(); desenharLista(); }));
+  const sel = $('#filtros select');
+  if (sel) sel.addEventListener('change', () => { filtro = sel.value || 'clientes'; desenharFiltros(); desenharLista(); });
 }
 async function carregarConversas() {
   try { conversas = await api('/api/conversas'); } catch { conversas = []; }
@@ -974,19 +1018,15 @@ async function carregarConversas() {
   $('#cont-fila').hidden = !naFila;
   $('#cont-fila').textContent = naFila;
   $('#nav-fila').classList.toggle('tem-contador', naFila > 0);
+  desenharFiltros();
   if (!buscaAtiva()) desenharLista();
 }
 const buscaAtiva = () => $('#busca').value.trim().length >= 3 && !/^\d+$/.test($('#busca').value.trim());
 function desenharLista() {
   const q = $('#busca').value.trim().toLowerCase();
   const qn = q.replace(/\D/g, '');
-  let lista = conversas.filter((c) => {
-    if (filtro === 'aguardando') return c.ticket && c.ticket.status === 'aguardando';
-    if (filtro === 'atendimento') return c.ticket && c.ticket.status === 'atendimento';
-    if (filtro === 'bot') return !c.pausado;
-    if (filtro.startsWith('etq:')) return (c.etiquetas || []).includes(filtro.slice(4));
-    return true;
-  }).filter((c) => !q || (c.nome || '').toLowerCase().includes(q) || (qn && String(c.numero).includes(qn)));
+  let lista = conversas.filter((c) => passaFiltro(c, filtro))
+    .filter((c) => !q || (c.nome || '').toLowerCase().includes(q) || (c.nomeSgp || '').toLowerCase().includes(q) || (qn && String(c.numero).includes(qn)));
   lista = lista.sort((a, b) => {
     const pa = a.ticket ? (a.ticket.status === 'aguardando' ? 0 : 1) : 2;
     const pb = b.ticket ? (b.ticket.status === 'aguardando' ? 0 : 1) : 2;
@@ -995,11 +1035,12 @@ function desenharLista() {
     return (b.hora || 0) - (a.hora || 0);
   });
   $('#itens').innerHTML = lista.length ? lista.map((c) => {
-    const sit = c.ticket ? `<span class="badge ${c.ticket.status}">${NOME_SIT[c.ticket.status]}${c.ticket.status === 'aguardando' ? ` · ${duracao(Date.now() - c.ticket.abertoEm)}` : ''}</span>` : '';
+    const espera = c.ticket && c.ticket.status === 'aguardando' ? Date.now() - c.ticket.abertoEm : 0;
+    const sit = c.ticket ? `<span class="badge ${c.ticket.status}${espera > 600000 ? ' atrasado' : ''}">${c.ticket.status === 'aguardando' ? `Aguardando há ${duracao(espera)}` : NOME_SIT[c.ticket.status]}</span>` : '';
     return `<div class="item${aberta === c.id ? ' ativo' : ''}" data-id="${esc(c.id)}">
-      ${avatarHtml(c.id, c.nome || c.numero, 'peq')}
-      <div class="l1"><span class="nome">${esc(c.nome || fone(c.numero) || c.id)}</span><span class="hora">${hora(c.hora)}</span></div>
-      <div class="l2"><span class="ultima">${c.deMim ? '↪ ' : ''}${esc(c.ultima)}</span>${c.naoLidas ? `<span class="naolidas">${c.naoLidas}</span>` : ''}</div>
+      ${avatarHtml(c.id, c.nome || c.nomeSgp || c.numero, 'peq')}
+      <div class="l1"><span class="nome">${esc(c.nome || c.nomeSgp || fone(c.numero) || c.id)}${c.nome && c.nomeSgp && c.nomeSgp.toLowerCase() !== c.nome.toLowerCase() ? `<span class="sgp">· ${esc(c.nomeSgp)}</span>` : ''}</span><span class="hora">${hora(c.hora)}</span></div>
+      <div class="l2"><span class="ultima">${c.deMim ? '↪ ' : ''}${esc(c.ultima)}</span>${c.naoLidas ? `<span class="naolidas">${c.naoLidas}</span>` : c.marcadaNaoLida ? '<span class="marcada" title="Marcada como não lida"></span>' : ''}</div>
       ${sit || (c.etiquetas || []).length ? `<div class="l3">${sit}${(c.etiquetas || []).map(etqHtml).join('')}</div>` : ''}
     </div>`;
   }).join('') : `<div class="vazio"><div class="ico-grande">${ic('chat')}</div><b>${conversas.length ? 'Nada neste filtro' : 'Nenhuma conversa ainda'}</b>${conversas.length ? 'Escolha outro filtro acima.' : 'O WhatsApp precisa estar conectado.'}</div>`;
@@ -1026,12 +1067,19 @@ async function abrirConversa(id, manter) {
   aberta = id;
   document.body.classList.add('tem-conversa');
   if (!buscaAtiva()) desenharLista();
+  // Trocou de conversa: limpa na hora, para nunca mostrar a conversa anterior enquanto a nova carrega
+  if (!manter) {
+    conversaAtual = null;
+    $('#conversa').innerHTML = '<div class="carregando"><i></i>Abrindo conversa…</div>';
+    $('#lado').dataset.id = '';
+  }
   let c;
   try { c = await api(`/api/conversa?id=${encodeURIComponent(id)}`); } catch (e) {
-    $('#conversa').innerHTML = `<div class="vazio" style="margin:auto"><div class="ico-grande">${ic('alerta')}</div><b>Não consegui abrir a conversa</b>${esc(e.message)}</div>`;
+    if (aberta === id) $('#conversa').innerHTML = `<div class="vazio" style="margin:auto"><div class="ico-grande">${ic('alerta')}</div><b>Não consegui abrir a conversa</b>${esc(e.message)}</div>`;
     return;
   }
   if (aberta !== id) return;
+  conversaAtual = c;
   const rascunho = manter && $('#texto') ? $('#texto').value : '';
   const caixaAntiga = $('#mensagens');
   const noFim = !manter || !caixaAntiga || caixaAntiga.scrollTop + caixaAntiga.clientHeight >= caixaAntiga.scrollHeight - 40;
@@ -1043,7 +1091,7 @@ async function abrirConversa(id, manter) {
     const src = `/api/midia?id=${encodeURIComponent(m.id)}`;
     let midia = '';
     if (m.midia && (m.tipo === 'image' || m.tipo === 'sticker')) midia = `<img class="foto" loading="lazy" src="${src}" alt="foto" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'midia',textContent:'📷 Foto (não disponível)'}))">`;
-    else if (m.midia && (m.tipo === 'ptt' || m.tipo === 'audio')) midia = `<audio controls preload="none" src="${src}"></audio>`;
+    else if (m.midia && (m.tipo === 'ptt' || m.tipo === 'audio')) midia = `<audio controls preload="none" src="${src}"></audio>${m.transcricao ? `<span class="transcricao">${esc(m.transcricao)}</span>` : ''}`;
     else if (m.midia && m.tipo === 'video') midia = `<video controls preload="none" src="${src}" style="max-width:280px;border-radius:8px"></video>`;
     else if (m.midia && m.tipo === 'document') midia = `<a class="doc" href="${src}" target="_blank">📄 <span>${esc(m.arquivo || 'Documento')}</span></a>`;
     else if (m.tipo !== 'chat' && TIPOS[m.tipo]) midia = `<span class="midia">${TIPOS[m.tipo]}</span>\n`;
@@ -1052,13 +1100,14 @@ async function abrirConversa(id, manter) {
     return `${sep}<div class="balao${m.deMim ? ' mim' : ''}">${midia}${corpo}<span class="meta">${new Date(m.hora * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}${visto}</span></div>`;
   }).join('');
   const t = c.ticket;
-  const nome = c.nome || fone(c.numero);
+  const nome = c.nome || c.nomeSgp || fone(c.numero);
+  const voltaEm = c.pausaAte ? c.pausaAte - Date.now() : 0;
   const situacao = t ? `<span class="badge ${t.status}">${NOME_SIT[t.status]}</span>` : `<span class="badge ${c.pausado ? 'neutro' : 'bot'}">${c.pausado ? 'Bot pausado' : 'Com o bot'}</span>`;
   $('#conversa').innerHTML = `
     <div class="cab-conversa">
       <button class="botao icone fantasma" id="voltar" style="display:none" title="Voltar">${ic('voltar')}</button>
       ${avatarHtml(c.id, nome)}
-      <div class="quem"><b>${esc(nome)} ${situacao}</b><span>${esc(fone(c.numero))}${t ? ` · Protocolo ${t.protocolo} · há ${duracao(Date.now() - t.abertoEm)}` : ''}${t && t.atendente ? ` · <span class="por-quem">com ${esc(t.atendente)}</span>` : ''}</span></div>
+      <div class="quem"><b>${esc(nome)} ${situacao}</b><span>${esc(fone(c.numero))}${t ? ` · Protocolo ${t.protocolo} · há ${duracao(Date.now() - t.abertoEm)}` : ''}${t && t.atendente ? ` · <span class="por-quem">com ${esc(t.atendente)}</span>` : ''}</span>${t && t.motivo ? `<span style="display:block">Motivo: ${esc(t.motivo)}</span>` : ''}</div>
       <div class="acoes">
         ${!t || t.status === 'aguardando' ? `<button class="botao primario" id="assumir">${ic('usuario')}Assumir</button>` : ''}
         ${t || c.pausado ? `<button class="botao" id="abrir-encerrar">${ic('check')}Encerrar</button>` : ''}
@@ -1069,6 +1118,7 @@ async function abrirConversa(id, manter) {
         </div>
       </div>
     </div>
+    ${voltaEm > 0 ? `<div class="faixa-bot">${ic('relogio')}<span>Bot pausado nesta conversa · volta a responder sozinho em <b>${duracao(voltaEm)}</b> (às ${new Date(c.pausaAte).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}). Para religar antes, use <b>Encerrar</b>.</span></div>` : ''}
     <div class="mensagens" id="mensagens">${baloes || '<div class="vazio" style="margin:auto">Sem mensagens.</div>'}</div>
     <div class="compositor">
       <div class="faixa" id="anexo"></div>
@@ -1117,6 +1167,16 @@ async function abrirConversa(id, manter) {
 document.addEventListener('click', () => { const m = $('#menu-encerrar'); if (m) m.classList.remove('aberto'); });
 $('#zoom').addEventListener('click', () => { $('#zoom').style.display = 'none'; });
 
+// {nome} = primeiro nome do cliente, {protocolo} = protocolo do atendimento, {atendente} = quem está atendendo
+function preencherVariaveis(texto) {
+  const c = conversaAtual || {};
+  const nomeCompleto = (c.nomeSgp || c.nome || '').trim();
+  const primeiro = nomeCompleto ? nomeCompleto.split(/\s+/)[0].toLowerCase().replace(/^./, (x) => x.toUpperCase()) : '';
+  return String(texto)
+    .replace(/\s*\{nome\}/gi, primeiro ? (m) => m.replace(/\{nome\}/i, primeiro) : '')
+    .replace(/\{protocolo\}/gi, (c.ticket && c.ticket.protocolo) || '')
+    .replace(/\{atendente\}/gi, atendenteAtual || '');
+}
 function ligarEscrever(id, rascunho, manter) {
   const t = $('#texto');
   t.value = rascunho;
@@ -1138,7 +1198,7 @@ function ligarEscrever(id, rascunho, manter) {
   const usar = (atalho) => {
     const r = config.respostas.find((x) => x.atalho === atalho);
     if (!r) return;
-    t.value = r.texto;
+    t.value = preencherVariaveis(r.texto);
     $('#sugestoes').style.display = 'none';
     ajustar();
     t.focus();
@@ -1230,11 +1290,12 @@ async function desenharLado(c, doc) {
   const box = $('#lado-ficha');
   const formBusca = `<div style="display:flex;gap:6px;margin-top:12px"><input class="campo" id="ficha-doc" placeholder="CPF/CNPJ ou ID do SGP" style="height:34px"><button class="botao peq" id="ficha-buscar" style="height:34px">${ic('busca')}</button></div>`;
   if (!f.encontrado) {
-    box.innerHTML = `<h4>${ic('usuario')}Cliente no SGP</h4><p class="msg" style="margin:0">${f.erro ? `Não consegui consultar o SGP (${esc(f.erro)}).` : f.doc ? 'Não achei cadastro com o documento que o cliente informou.' : 'O cliente ainda não informou o CPF ao bot.'}</p>${formBusca}`;
+    box.innerHTML = `<h4>${ic('usuario')}Cliente no SGP</h4><p class="msg" style="margin:0">${f.erro ? `Não consegui consultar o SGP (${esc(f.erro)}).` : f.doc ? 'Não achei cadastro com o documento que o cliente informou.' : f.tentouTelefone ? 'O cliente ainda não informou o CPF e não achei o número dele no cadastro do SGP. Busque pelo CPF ou ID:' : 'O cliente ainda não informou o CPF ao bot.'}</p>${formBusca}`;
   } else {
     const k = f.contrato;
     box.innerHTML = `<h4>${ic('usuario')}Cliente no SGP</h4>
       <div style="font-weight:700;margin-bottom:6px">${esc(k.nome || '')}</div>
+      ${f.peloTelefone ? '<p class="msg" style="margin:-2px 0 8px;font-size:12px">Achado pelo telefone do WhatsApp</p>' : ''}
       <div class="linha"><span>ID / contrato</span><span>${esc(k.id)}</span></div>
       <div class="linha"><span>Situação</span><span>${esc(k.status || '–')}</span></div>
       <div class="linha"><span>Conexão</span><span>${f.online === true ? '<span class="badge bot">online</span>' : f.online === false ? '<span class="badge" style="background:var(--erro-fundo);color:var(--erro)">offline</span>' : '–'}</span></div>
@@ -1243,12 +1304,55 @@ async function desenharLado(c, doc) {
       ${k.referencia ? `<div class="linha"><span>Referência</span><span>${esc(k.referencia)}</span></div>` : ''}
       ${(k.telefones || []).length ? `<div class="linha"><span>Telefones</span><span>${k.telefones.map((x) => esc(fone(x))).join('<br>')}</span></div>` : ''}
       <h4 style="margin-top:14px">${ic('boleto')}Faturas em aberto</h4>
-      ${f.faturas.length ? f.faturas.map((x) => `<div class="fatura"><span>${esc(dataBR(x.vencimento))}</span><span>${x.link ? `<a href="${esc(x.link)}" target="_blank">${dinheiro(x.valor)}</a>` : dinheiro(x.valor)}</span></div>`).join('') : '<p class="msg" style="margin:0">Nenhuma em aberto ✅</p>'}
+      ${f.faturas.length ? f.faturas.map((x, i) => `<div class="fatura" style="align-items:center;gap:8px"><span>${esc(dataBR(x.vencimento))}</span><span style="margin-left:auto">${x.link ? `<a href="${esc(x.link)}" target="_blank">${dinheiro(x.valor)}</a>` : dinheiro(x.valor)}</span>${x.link ? `<button class="botao peq" data-boleto="${i}" title="Colocar o boleto na caixa de texto para enviar">Enviar</button>` : ''}</div>`).join('') : '<p class="msg" style="margin:0">Nenhuma em aberto ✅</p>'}
+      <div class="acoes-ficha">
+        <button class="botao peq" id="acao-liberar">${ic('check')}Liberação de confiança</button>
+        <button class="botao peq" id="acao-chamado">${ic('ferramenta')}Abrir ocorrência</button>
+      </div>
       ${f.outros.length ? `<p class="msg" style="margin:10px 0 0">Outros contratos: ${f.outros.map((o) => `${esc(o.id)} (${esc(o.status)})`).join(', ')}</p>` : ''}
       ${formBusca}`;
   }
+  if (f.encontrado) ligarAcoesFicha(c, f);
   $('#ficha-buscar').addEventListener('click', () => desenharLado(c, $('#ficha-doc').value));
   $('#ficha-doc').addEventListener('keydown', (e) => { if (e.key === 'Enter') desenharLado(c, $('#ficha-doc').value); });
+}
+// Botões da ficha: enviar boleto, liberação de confiança e abrir ocorrência
+function colocarNaCaixa(texto) {
+  const t = $('#texto');
+  if (!t) return;
+  t.value = texto;
+  t.dispatchEvent(new Event('input'));
+  t.focus();
+  toast('Mensagem pronta na caixa de texto. Confira e clique em Enviar.', 'info');
+}
+function ligarAcoesFicha(c, f) {
+  const k = f.contrato;
+  $$('#lado-ficha [data-boleto]').forEach((b) => b.addEventListener('click', () => {
+    const x = f.faturas[Number(b.dataset.boleto)];
+    colocarNaCaixa(`Segue o boleto com vencimento em ${dataBR(x.vencimento)}, no valor de ${dinheiro(x.valor)}:\n${x.link}`);
+  }));
+  $('#acao-liberar').addEventListener('click', async () => {
+    if (!(await confirmar('Liberação de confiança', `Pedir ao SGP a liberação em confiança do contrato ${k.id} (${k.nome || 'cliente'})? O SGP aplica as regras dele e pode negar.`, { botao: 'Liberar' }))) return;
+    try {
+      const r = await api('/api/liberar', { contrato: k.id, atendente: atendenteAtual });
+      if (r.ok) {
+        toast(`Liberado${r.ate ? ` até ${dataBR(r.ate)}` : ''}.`, 'ok');
+        colocarNaCaixa(`✅ Pronto! Liberei sua internet em confiança${r.ate ? ` até ${dataBR(r.ate)}` : ''}. Se não voltar em alguns minutos, desligue o roteador da tomada por 30 segundos e ligue de novo.`);
+      } else toast(`O SGP não liberou${r.mensagem ? `: ${r.mensagem}` : '.'}`, 'erro');
+    } catch (e) { toast(e.message, 'erro'); }
+  });
+  $('#acao-chamado').addEventListener('click', async () => {
+    const texto = await confirmar('Abrir ocorrência no SGP', `Contrato ${k.id} (${k.nome || 'cliente'}). Descreva o problema:`, { botao: 'Abrir ocorrência', campo: 'Ex.: cliente sem internet desde ontem, luz vermelha no aparelho' });
+    if (!texto) return;
+    try {
+      const r = await api('/api/chamado', { id: c.id, contrato: k.id, texto, atendente: atendenteAtual });
+      if (r.ok) {
+        toast(`Ocorrência aberta${r.protocolo ? ` · protocolo ${r.protocolo}` : ''}. Ficou registrada nas notas.`, 'ok');
+        const atual = await api(`/api/conversa?id=${encodeURIComponent(c.id)}`).catch(() => null);
+        if (atual) { c.notas = atual.notas; desenharEtiquetasENotas(c); }
+      } else toast(`O SGP não abriu a ocorrência${r.mensagem ? `: ${r.mensagem}` : '.'}`, 'erro');
+    } catch (e) { toast(e.message, 'erro'); }
+  });
 }
 function desenharEtiquetasENotas(c) {
   const box = $('#lado-etqs');
@@ -1285,9 +1389,9 @@ async function carregarFila() {
   ].map(([i, r, v, c]) => `<div class="kpi"><div class="ico ${c}">${ic(i)}</div><div><div class="rot">${r}</div><div class="num">${v}</div></div></div>`).join('');
   const nome = (t) => esc(t.nome || fone(t.numero) || t.chatId);
   const etqs = (t) => (t.etiquetas || []).map(etqHtml).join(' ') || '<span class="sec">–</span>';
-  $('#fila-aguardando').innerHTML = agu.length ? `<table class="tabela cards-mobile"><thead><tr><th>Cliente</th><th>Protocolo</th><th>Esperando há</th><th>Última mensagem</th><th>Etiquetas</th></tr></thead><tbody>${agu.map((t) => {
+  $('#fila-aguardando').innerHTML = agu.length ? `<table class="tabela cards-mobile"><thead><tr><th>Cliente</th><th>Motivo</th><th>Esperando há</th><th>Última mensagem</th><th>Etiquetas</th></tr></thead><tbody>${agu.map((t) => {
     const e = Date.now() - t.abertoEm;
-    return `<tr class="clicavel" data-id="${esc(t.chatId)}"><td><b>${nome(t)}</b><div class="sec">${esc(fone(t.numero))}</div></td><td data-r="Protocolo">${t.protocolo}</td><td data-r="Esperando"><span class="badge ${e > 600000 ? 'aguardando' : 'neutro'}">${duracao(e)}</span></td><td data-r="Última mensagem" class="sec">${t.ultimaClienteEm ? `há ${duracao(Date.now() - t.ultimaClienteEm)}` : '–'}</td><td data-r="Etiquetas">${etqs(t)}</td></tr>`;
+    return `<tr class="clicavel" data-id="${esc(t.chatId)}"><td><b>${nome(t)}</b><div class="sec">${esc(fone(t.numero))} · ${t.protocolo}</div></td><td data-r="Motivo" class="sec">${esc(t.motivo || '–')}</td><td data-r="Esperando"><span class="badge ${e > 600000 ? 'atrasado' : 'neutro'}">${duracao(e)}</span></td><td data-r="Última mensagem" class="sec">${t.ultimaClienteEm ? `há ${duracao(Date.now() - t.ultimaClienteEm)}` : '–'}</td><td data-r="Etiquetas">${etqs(t)}</td></tr>`;
   }).join('')}</tbody></table>` : `<div class="vazio"><div class="ico-grande">${ic('check')}</div><b>Ninguém esperando</b>Quando um cliente pedir atendente, ele aparece aqui.</div>`;
   $('#fila-atendimento').innerHTML = atd.length ? `<table class="tabela cards-mobile"><thead><tr><th>Cliente</th><th>Atendente</th><th>Protocolo</th><th>Na fila há</th><th>1ª resposta em</th><th>Etiquetas</th></tr></thead><tbody>${atd.map((t) => `<tr class="clicavel" data-id="${esc(t.chatId)}"><td><b>${nome(t)}</b><div class="sec">${esc(fone(t.numero))}</div></td><td data-r="Atendente">${t.atendente ? `<span class="por-quem">${esc(t.atendente)}</span>` : '<span class="sec">–</span>'}</td><td data-r="Protocolo">${t.protocolo}</td><td data-r="Na fila há">${duracao(Date.now() - t.abertoEm)}</td><td data-r="1ª resposta">${t.primeiraRespostaEm ? duracao(t.primeiraRespostaEm - t.abertoEm) : '–'}</td><td data-r="Etiquetas">${etqs(t)}</td></tr>`).join('')}</tbody></table>` : `<div class="vazio"><b>Nenhum atendimento em andamento</b></div>`;
   const SIT_AG = { pendente: ['neutro', 'Pendente'], enviada: ['bot', 'Enviada'], erro: ['aguardando', 'Erro'], enviando: ['atendimento', 'Enviando'] };
