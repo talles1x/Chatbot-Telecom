@@ -363,6 +363,7 @@
   </nav>
   <div class="rodape">
     <button id="tema" title="Alternar tema"><svg class="ic" data-i="lua" id="ic-tema"></svg><span class="txt" id="txt-tema">Modo escuro</span></button>
+    <button id="sons" title="Ligar/desligar sons"><svg class="ic" data-i="som" id="ic-sons"></svg><span class="txt" id="txt-sons">Sons ligados</span></button>
     <button id="recolher" title="Recolher menu"><svg class="ic ic-recolher" data-i="recolher"></svg><span class="txt">Recolher menu</span></button>
   </div>
 </aside>
@@ -556,6 +557,8 @@ const ICONES = {
   ampulheta: '<path d="M6 2h12M6 22h12M7 2c0 6 10 6 10 10S7 16 7 22M17 2c0 6-10 6-10 10s10 4 10 10"/>',
   cadeado: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  som: '<path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>',
+  'som-off': '<path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="m22 9-6 6M16 9l6 6"/>',
 };
 const ic = (nome, extra = '') => `<svg class="ic" viewBox="0 0 24 24" ${extra}>${ICONES[nome] || ''}</svg>`;
 function desenharIcones(raiz = document) {
@@ -600,8 +603,69 @@ const NOME_SIT = { aguardando: 'Aguardando', atendimento: 'Em atendimento' };
 const lerLocal = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const gravarLocal = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
+// ================= Sons da interface =================
+let somLigado = lerLocal('sons') !== '0';
+let ctxSom = null;
+function nota(freq, inicio, dur, vol, tipo = 'sine', freqFim) {
+  const c = ctxSom, t = c.currentTime + inicio;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = tipo;
+  o.frequency.setValueAtTime(freq, t);
+  if (freqFim) o.frequency.exponentialRampToValueAtTime(freqFim, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(c.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+const SONS = {
+  passar: () => nota(1250, 0, 0.05, 0.018, 'sine', 1500),            // tic macio
+  clicar: () => nota(520, 0, 0.09, 0.05, 'sine', 880),               // pop
+  ok: () => { nota(660, 0, 0.14, 0.045); nota(990, 0.08, 0.2, 0.04); },   // plim
+  erro: () => { nota(330, 0, 0.14, 0.05, 'triangle', 280); nota(247, 0.11, 0.2, 0.045, 'triangle'); },
+  aviso: () => nota(880, 0, 0.16, 0.035, 'sine', 990),
+  tema: () => { nota(440, 0, 0.12, 0.035); nota(660, 0.06, 0.16, 0.03); },
+};
+function som(nome) {
+  if (!somLigado) return;
+  try {
+    ctxSom = ctxSom || new (window.AudioContext || window.webkitAudioContext)();
+    if (ctxSom.state === 'suspended') ctxSom.resume();
+    if (ctxSom.state !== 'running' && nome === 'passar') return;
+    SONS[nome] && SONS[nome]();
+  } catch {}
+}
+const ALVOS_SOM = '.kpi, .item, .menu nav button, .menu .rodape button, .botao, .filtros button, .rapidas button, .tabs button, .seg button, tr.clicavel, .etqs button, .busca-res[data-id], .status-zap, .menu-suspenso button, .sugestoes div';
+let ultimoAlvo = null, ultimoTic = 0;
+document.addEventListener('mouseover', (e) => {
+  const alvo = e.target.closest(ALVOS_SOM);
+  if (!alvo || alvo === ultimoAlvo) return;
+  ultimoAlvo = alvo;
+  if (alvo.disabled || Date.now() - ultimoTic < 45) return;
+  ultimoTic = Date.now();
+  som('passar');
+});
+document.addEventListener('mouseout', (e) => { if (ultimoAlvo && !ultimoAlvo.contains(e.relatedTarget)) ultimoAlvo = null; });
+document.addEventListener('pointerdown', (e) => {
+  const alvo = e.target.closest(ALVOS_SOM);
+  if (alvo && !alvo.disabled && !alvo.matches('#tema, #sons')) som('clicar');
+});
+function desenharSons() {
+  $('#ic-sons').dataset.i = somLigado ? 'som' : 'som-off';
+  $('#txt-sons').textContent = somLigado ? 'Sons ligados' : 'Sons desligados';
+  desenharIcones($('#sons'));
+}
+desenharSons();
+$('#sons').addEventListener('click', () => {
+  somLigado = !somLigado;
+  gravarLocal('sons', somLigado ? '1' : '0');
+  desenharSons();
+  som('ok');
+});
+
 // Toasts
 function toast(texto, tipo = 'info') {
+  som(tipo === 'ok' ? 'ok' : tipo === 'erro' ? 'erro' : 'aviso');
   const el = document.createElement('div');
   el.className = `toast ${tipo}`;
   el.innerHTML = `${ic({ ok: 'ok', erro: 'erro', alerta: 'alerta', info: 'info' }[tipo] || 'info')}<div>${esc(texto)}</div>`;
@@ -637,6 +701,7 @@ $('#tema').addEventListener('click', () => {
   const novo = document.documentElement.dataset.tema === 'escuro' ? 'claro' : 'escuro';
   gravarLocal('tema', novo);
   aplicarTema(novo);
+  som('tema');
 });
 if (lerLocal('menu') === 'recolhido') document.body.classList.add('recolhido');
 $('#recolher').addEventListener('click', () => {
