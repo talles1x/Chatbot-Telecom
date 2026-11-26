@@ -662,6 +662,7 @@ function criarFluxo({
     if (s.etapa === 'tec_consultar') return tecConsultar(chatId, s, texto);
     if (s.etapa === 'tec_online') return tecOnline(chatId, s, texto);
     if (s.etapa === 'tec_oc_contrato') return tecEscolherContratoOcorrencia(chatId, s, texto);
+    if (s.etapa === 'tec_img_acao') return tecAcaoImagem(chatId, s, texto);
     if (s.etapa === 'tec_alt_contrato') return tecAltContrato(chatId, s, texto);
     if (s.etapa === 'tec_alt_campo') return tecAltCampo(chatId, s, texto);
     if (s.etapa === 'tec_alt_ref') return tecAltReferencia(chatId, s, texto);
@@ -772,8 +773,7 @@ function criarFluxo({
   // Lê a ficha do cliente na imagem e procura no SGP: CPF, ou cada número conferindo o nome
   async function tecFichaPorImagem(chatId, s, lerImagem) {
     const texto = await lerImagem().catch(() => null);
-    // Só trata como ficha o print do app do SGP; outra foto (documento, casa, equipamento) vai para a equipe
-    if (texto !== null && !ocr.ehFichaSgp(texto)) return tecParaEquipe(chatId, s, 'imagem que não é ficha do SGP');
+    const pareceFicha = texto !== null && ocr.ehFichaSgp(texto);
     const pedirId = (msg) => {
       s.etapa = 'tec_oc_contrato';
       delete s.tecContratos;
@@ -781,6 +781,8 @@ function criarFluxo({
     };
     if (texto === null) return pedirId('Não consegui ler a imagem por aqui. 😕');
     const { nome, numeros, doc } = ocr.dadosDaFicha(texto);
+    // Sem cara de ficha e sem nome para conferir: é outra foto (casa, equipamento...), vai para a equipe
+    if (!pareceFicha && !nome) return tecParaEquipe(chatId, s, 'imagem que não é ficha do SGP');
     registrar(`[técnico] imagem lida: nome "${nomeLGPD(nome)}", ${numeros.length} número(s)${doc ? ', com CPF/CNPJ' : ''}`);
     const bate = (c) => !nome || nomesParecidos(c.nome, nome);
     let achado = null;
@@ -790,23 +792,46 @@ function criarFluxo({
         if (lista.length === 1) achado = lista[0];
         else if (lista.length > 1) achado = lista.find((c) => numeros.includes(String(c.id))) || null;
       }
-      // Sem nome lido, só aceita o número se for o único que existe no SGP
+      // Sem nome lido, só aceita o número se for o único que existe no SGP (e só em print de ficha)
       const encontrados = [];
+      if (!pareceFicha && !nome) numeros.length = 0;
       for (const n of achado ? [] : numeros) {
         const lista = await sgp.consultarContrato(n).catch(() => []);
         const c = lista.find((x) => String(x.id) === n) || lista[0];
         if (c && bate(c)) encontrados.push(c);
         if (c && nome && bate(c)) break;
       }
-      if (!achado && (nome ? encontrados.length >= 1 : encontrados.length === 1)) achado = encontrados[0];
+      if (!achado && (nome ? encontrados.length >= 1 : pareceFicha && encontrados.length === 1)) achado = encontrados[0];
     } catch (e) {
       registrar(`[técnico] erro ao consultar o SGP pela imagem: ${e.message}`);
       return pedirId('Não consegui consultar o SGP agora. 😕');
     }
-    if (!achado) return pedirId(`Não consegui identificar o cliente nessa imagem${nome ? ` (li "${nomeBonito(nome)}")` : ''}. 🤔`);
+    if (!achado) {
+      // Foto que não é ficha e cujo nome não está no SGP: é para a equipe
+      if (!pareceFicha) return tecParaEquipe(chatId, s, 'imagem que não é ficha do SGP');
+      return pedirId(`Não consegui identificar o cliente nessa imagem${nome ? ` (li "${nomeBonito(nome)}")` : ''}. 🤔`);
+    }
     registrar(`[técnico] cliente identificado pela imagem: ID ${achado.id}`);
-    await enviar(chatId, `Identifiquei o cliente ✅\n\n${fichaTecnico(achado)}\n\n_Se não for esse cliente, digite *cancelar*._`);
-    return pedirAuxiliar(chatId, s, achado);
+    // Na maioria das vezes é para abrir ocorrência: pergunta para confirmar, já com essa opção primeiro
+    s.etapa = 'tec_img_acao';
+    s.tecImgCliente = achado;
+    return enviar(chatId, `Identifiquei o cliente ✅\n\n${fichaTecnico(achado)}\n\nQuer abrir uma *ocorrência* para esse cliente? 👇\n\n` +
+      '*1* - ✅ Sim, abrir ocorrência\n*2* - 📶 Ver se está online\n*3* - ✏️ Atualizar telefone ou referência\n*4* - 👤 Não, passar para a equipe');
+  }
+
+  async function tecAcaoImagem(chatId, s, texto) {
+    const c = s.tecImgCliente;
+    const t = u.normalizar(texto);
+    if (!c) { s.etapa = 'tec_menu'; return menuTecnico(chatId); }
+    if (/^(1|s|sim|isso|ok|pode|abre|abrir|os|o s|ocorrencia|abrir ocorrencia|quero|confirmo|isso mesmo|exato|uhum|positivo)\b/.test(t) || /\b(abr\w*|ocorrencia|os)\b/.test(t)) {
+      delete s.tecImgCliente;
+      return pedirAuxiliar(chatId, s, c);
+    }
+    if (/^2\b|online|offline|conexao/.test(t)) { delete s.tecImgCliente; s.etapa = 'tec_online'; return tecOnline(chatId, s, String(c.id)); }
+    if (/^3\b|telefone|referencia|atualiz/.test(t)) { delete s.tecImgCliente; s.etapa = 'tec_alt_contrato'; return tecAltContrato(chatId, s, String(c.id)); }
+    if (/^4\b|^(n|nao|não)\b|equipe|atendente/.test(t)) { delete s.tecImgCliente; return tecParaEquipe(chatId, s, 'pediu para passar para a equipe'); }
+    if (t.split(/\s+/).length >= 4) { delete s.tecImgCliente; return tecParaEquipe(chatId, s, 'respondeu outra coisa depois da ficha'); }
+    return enviar(chatId, 'Responda *1* para abrir ocorrência, *2* para ver se está online, *3* para atualizar telefone/referência ou *4* para passar para a equipe.');
   }
 
   function pedirDescricaoOcorrencia(chatId, s, c) {
