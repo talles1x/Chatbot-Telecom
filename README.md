@@ -49,14 +49,27 @@ Em qualquer passo, *0* volta ao menu.
 
 ## Painel no navegador
 
-Com o bot ligado, abra `painel.bat` (ou acesse `http://localhost:3210` no computador do bot). O painel usa a mesma conexão do WhatsApp e só abre no próprio computador:
+Com o bot ligado, abra `painel.bat` (ou acesse `http://localhost:3210` no computador do bot). O painel usa a mesma conexão do WhatsApp e só abre no próprio computador.
 
-- **Conversas**: lista as conversas mais recentes, mostra as mensagens e deixa responder. Responder pelo painel tira o bot da conversa, igual responder pelo celular. Dá para assumir (pausar o bot) ou religar o bot em cada conversa.
-- **Painel do dia**: conversas novas, boletos enviados, liberações, chamados, passadas para atendente, ocorrências de técnicos, fechamentos de caixa e áudios, com gráfico por hora e o log ao vivo.
-- **Configurações**: edita número da equipe, técnicos, administradores, caixas e horário (o `.env` anterior fica em `.env.bak`) e reinicia o bot.
-- **WhatsApp**: mostra se está conectado e o QR code quando precisar conectar de novo.
+**Conversas**
+- Lista com filtros (Aguardando, Em atendimento, Com o bot e por etiqueta) e busca por nome, número ou qualquer palavra já trocada nas mensagens.
+- **Fila com protocolo**: quando o cliente pede atendente, a conversa entra em *Aguardando* com um número de protocolo; quando alguém responde, vira *Em atendimento*. **Assumir** pausa o bot e **Encerrar** religa o bot, com ou sem a mensagem de encerramento (com o protocolo) para o cliente.
+- **Respostas rápidas** em botões em cima da caixa de texto e pelo atalho `/` (ex.: `/pix`).
+- Fotos, áudios, vídeos e PDFs aparecem na conversa, e dá para enviar arquivos (📎) e **agendar** a mensagem para outro dia e hora (🕒).
+- Ao lado: **ficha do cliente no SGP** (contrato, situação, online/offline, plano, endereço, referência, telefones e faturas em aberto, com busca por CPF ou ID), **etiquetas** e **notas internas** (só a equipe vê).
+- Responder pelo painel tira o bot da conversa, igual responder pelo celular.
 
-`PAINEL=false` desliga o painel e `PAINEL_PORTA` troca a porta.
+**Atendimentos**: visão do supervisor, com quem está aguardando (e há quanto tempo; acima de 10 minutos fica em vermelho), quem está em atendimento e as mensagens agendadas.
+
+**Relatórios**: números de hoje tirados do log (conversas, boletos, liberações, chamados, ocorrências, caixa, áudios) e, por período, atendimentos encerrados, tempo médio até a primeira resposta, tempo médio de atendimento, atendimentos por dia, por etiqueta e como começaram, além do log ao vivo.
+
+**Configurações**: respostas rápidas, etiquetas, mensagem de encerramento, **textos do bot** (valem na hora, sem reiniciar; `{empresa}` e `{horario}` são trocados automaticamente) e as configurações do `.env` (número da equipe, técnicos, caixas, horário), com botão para reiniciar o bot.
+
+**Avisos**: o sino 🔔 liga som e notificação do Windows quando um cliente entra na fila ou manda mensagem estando na fila.
+
+**WhatsApp**: mostra se está conectado e o QR code quando precisar conectar de novo.
+
+Os atendimentos, etiquetas, notas, respostas e agendadas ficam em `dados/atendimento.json`, o histórico da busca em `dados/mensagens.jsonl` e os textos editados em `dados/textos.json`, tudo no computador do bot. `PAINEL=false` desliga o painel e `PAINEL_PORTA` troca a porta.
 
 ## Como o atendente usa
 
