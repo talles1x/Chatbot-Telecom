@@ -23,6 +23,10 @@ const INT = {
   'ja paguei e continua bloqueado': 'atendente', 'segue o comprovante': 'atendente', 'quero mudar de plano': 'atendente',
   'vou mudar de endereço, como faço?': 'atendente', 'ja fiz o pix': 'atendente',
   'o tecnico chega aqui que horas?': 'suporte',
+  // frases reais vindas da transcrição de áudio (com os erros do Whisper)
+  'o papo é todo. Ah, é a internet já começou a cair de novo.': 'suporte', 'o que eu quero fazer na retramação é internet para caí direto': 'suporte',
+  'O boletano não tem ali, mas já sim.': 'financeiro', 'o canal está muito ruim, hop': 'suporte', 'o sino caiu agora pouco e não voltou mais': 'suporte',
+  'a internet cai direto aqui': 'suporte',
 };
 for (const [f, esp] of Object.entries(INT)) conf('intenção', e.detectarIntencao(f), esp, f);
 
