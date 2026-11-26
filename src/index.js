@@ -328,8 +328,14 @@ function contem(lista, numero) {
   return variantes(numero).some((n) => lista.includes(n));
 }
 
+// ---------- Painel no navegador (http://localhost:3210) ----------
+const conexao = { estado: 'iniciando', qr: '', desde: Date.now() };
+const mudarConexao = (estado, qr = '') => { conexao.estado = estado; conexao.qr = qr; conexao.desde = Date.now(); if (painel) painel.emitir('status', { estado }); };
+const painel = require('./painel').iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat: numeroReal });
+
 // ---------- Eventos ----------
 client.on('qr', async (qr) => {
+  mudarConexao('qr', await QRCode.toDataURL(qr, { width: 320 }).catch(() => ''));
   console.log('\nEscaneie o QR code abaixo no WhatsApp do celular (Aparelhos conectados > Conectar um aparelho):\n');
   qrcodeTerminal.generate(qr, { small: true });
   const arquivo = path.join(__dirname, '..', 'qrcode.png');
@@ -340,6 +346,7 @@ client.on('qr', async (qr) => {
 let pronto = false;
 let vigia = null;
 client.on('authenticated', () => {
+  mudarConexao('sincronizando');
   console.log('✅ Autenticado. A sessão fica salva, não vai pedir QR de novo.');
   console.log('⏳ Sincronizando as conversas do WhatsApp... (em número com muitas conversas pode levar alguns minutos)');
   clearTimeout(vigia);
@@ -355,6 +362,7 @@ client.on('change_state', (estado) => console.log(`[estado do WhatsApp] ${estado
 client.on('auth_failure', (m) => console.error('❌ Falha na autenticação:', m, '\nApague a pasta .sessao e rode de novo.'));
 
 client.on('ready', () => {
+  mudarConexao('conectado');
   registrar(`[config] áudio: ${cfg.audio.ativo ? 'LIGADO' : 'DESLIGADO (TRANSCREVER_AUDIO=false)'} | modo teste: ${cfg.testeNumeros.length ? cfg.testeNumeros.join(', ') : 'não (responde todos)'} | pausa atendente: ${cfg.pausaHumanoHoras}h | não lida: ${cfg.manterNaoLida ? 'sim' : 'não'}`);
   pronto = true;
   clearTimeout(vigia);
@@ -364,6 +372,7 @@ client.on('ready', () => {
 });
 
 client.on('disconnected', (motivo) => {
+  mudarConexao('desconectado');
   console.error('⚠️ Desconectado do WhatsApp:', motivo, '- tentando reconectar em 10s...');
   setTimeout(() => client.initialize().catch((e) => console.error(e.message)), 10000);
 });
