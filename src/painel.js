@@ -333,7 +333,16 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       return responder(res, 500, { erro: e.message });
     }
   });
-  servidor.on('error', (e) => console.error(`[painel] não abriu na porta ${porta}: ${e.message}`));
+  servidor.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      registrar(`[painel] a porta ${porta} já está em uso: provavelmente OUTRO BOT já está aberto`);
+      console.error(`\n⚠️  Parece que já tem outro bot aberto (o painel dele está usando a porta ${porta}).`);
+      console.error('   Dois bots no mesmo WhatsApp respondem o cliente em dobro. Feche TODAS as janelas "Chatbot Telecom"');
+      console.error('   (ou finalize o "Node.js" no Gerenciador de Tarefas) e abra o iniciar.bat uma vez só.\n');
+    } else {
+      console.error(`[painel] não abriu na porta ${porta}: ${e.message}`);
+    }
+  });
   servidor.listen(porta, '127.0.0.1', () => console.log(`🖥️  Painel do bot: http://localhost:${porta}`));
   return { emitir };
 }
