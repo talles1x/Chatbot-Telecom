@@ -73,9 +73,46 @@ function painelDoDia() {
   return { metricas: contagem, porHora, log: linhas.filter(Boolean).slice(-200) };
 }
 
+// Fotos de perfil dos clientes (guardadas na memória por 6h; sem foto/privada = iniciais no painel)
+const FOTO_VALIDADE = 6 * 60 * 60 * 1000;
+const fotos = new Map(); // chatId -> { em, foto: {tipo, dados} | null, promessa }
+let fotosBuscando = 0;
+const filaFotos = [];
+function proximaFoto() {
+  while (fotosBuscando < 3 && filaFotos.length) {
+    const tarefa = filaFotos.shift();
+    fotosBuscando++;
+    tarefa().finally(() => { fotosBuscando--; proximaFoto(); });
+  }
+}
+function buscarFoto(client, chatId) {
+  const salvo = fotos.get(chatId);
+  if (salvo && salvo.promessa) return salvo.promessa;
+  if (salvo && Date.now() - salvo.em < FOTO_VALIDADE) return Promise.resolve(salvo.foto);
+  const promessa = new Promise((resolve) => {
+    filaFotos.push(async () => {
+      let foto = null;
+      try {
+        const link = await Promise.race([client.getProfilePicUrl(chatId), new Promise((r) => setTimeout(r, 8000))]);
+        if (link) {
+          const r = await fetch(link, { signal: AbortSignal.timeout(10000) });
+          if (r.ok) foto = { tipo: r.headers.get('content-type') || 'image/jpeg', dados: Buffer.from(await r.arrayBuffer()) };
+        }
+      } catch {}
+      if (fotos.size > 500) fotos.delete(fotos.keys().next().value);
+      fotos.set(chatId, { em: Date.now(), foto });
+      resolve(foto);
+    });
+    proximaFoto();
+  });
+  fotos.set(chatId, { em: Date.now(), foto: salvo ? salvo.foto : null, promessa });
+  return promessa;
+}
+
 function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, atendimento, sgp, estado, MessageMedia, enviarComoBot }) {
   const nomes = new Map(); // chatId -> nome do contato (para a busca e a fila)
   const porta = Number(process.env.PAINEL_PORTA || 3210);
+  const fotoDe = (id) => (id && /@(c\.us|lid)$/.test(id) ? buscarFoto(client, id) : Promise.resolve(null));
   if (/^(0|false|nao|não)$/i.test(process.env.PAINEL || '')) return null;
   const html = () => fs.readFileSync(path.join(__dirname, 'painel.html'));
 
@@ -267,6 +304,12 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
         if (!media || !media.data) return responder(res, 404, { erro: 'mídia não disponível' });
         res.writeHead(200, { 'Content-Type': media.mimetype || 'application/octet-stream', 'Cache-Control': 'private, max-age=86400' });
         return res.end(Buffer.from(media.data, 'base64'));
+      }
+      if (rota === 'GET /api/foto') {
+        const foto = await fotoDe(url.searchParams.get('id'));
+        if (!foto) { res.writeHead(404, { 'Cache-Control': 'private, max-age=3600' }); return res.end(); }
+        res.writeHead(200, { 'Content-Type': foto.tipo, 'Cache-Control': 'private, max-age=21600' });
+        return res.end(foto.dados);
       }
       if (rota === 'POST /api/etiquetas') {
         const { id, etiquetas } = await corpo(req);

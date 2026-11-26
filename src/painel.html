@@ -236,7 +236,13 @@
 
   .conversa { flex: 1; display: flex; flex-direction: column; min-width: 360px; background: var(--fundo); }
   .cab-conversa { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--superficie); border-bottom: 1px solid var(--borda); min-height: 64px; }
-  .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--azul-2), var(--azul)); color: #fff; display: grid; place-items: center; font-weight: 700; flex: none; font-size: 14px; }
+  .avatar { position: relative; overflow: hidden; width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--azul-2), var(--azul)); color: #fff; display: grid; place-items: center; font-weight: 700; flex: none; font-size: 14px; }
+  .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s; }
+  .avatar img.ok { opacity: 1; }
+  .avatar.peq { width: 42px; height: 42px; font-size: 14px; }
+  .item { grid-template-columns: 42px 1fr; column-gap: 12px; }
+  .item > .avatar { grid-row: 1 / span 3; align-self: start; }
+  .item > :not(.avatar) { grid-column: 2; min-width: 0; }
   .cab-conversa .quem { min-width: 0; flex: 1; }
   .cab-conversa .quem b { display: flex; gap: 8px; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 15px; }
   .cab-conversa .quem span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -610,6 +616,11 @@ const minTxt = (m) => (m === null || m === undefined ? '–' : duracao(m * 60000
 const dinheiro = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const dataBR = (d) => { const m = String(d || '').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d || ''); };
 const iniciais = (nome) => String(nome || '?').replace(/[^\p{L}\s]/gu, '').trim().split(/\s+/).slice(0, 2).map((p) => p[0] || '').join('').toUpperCase() || '#';
+// Avatar: iniciais por baixo e a foto do WhatsApp por cima (some sozinha se não houver foto)
+const fotosOk = new Set(), fotosSem = new Set();
+window.fotoCarregou = (img) => { img.classList.add('ok'); fotosOk.add(img.dataset.id); };
+window.fotoFalhou = (img) => { fotosSem.add(img.dataset.id); img.remove(); };
+const avatarHtml = (id, nome, classe = '') => `<div class="avatar ${classe}">${esc(iniciais(nome))}${id && !fotosSem.has(id) ? `<img alt="" data-id="${esc(id)}" class="${fotosOk.has(id) ? 'ok' : ''}" loading="lazy" src="/api/foto?id=${encodeURIComponent(id)}" onload="fotoCarregou(this)" onerror="fotoFalhou(this)">` : ''}</div>`;
 const TIPOS = { image: '📷 Foto', audio: '🎤 Áudio', ptt: '🎤 Áudio', video: '🎬 Vídeo', document: '📄 Documento', sticker: '🙂 Figurinha', location: '📍 Localização', vcard: '👤 Contato', poll_creation: '📊 Enquete' };
 const NOME_SIT = { aguardando: 'Aguardando', atendimento: 'Em atendimento' };
 const lerLocal = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -913,6 +924,7 @@ function desenharLista() {
   $('#itens').innerHTML = lista.length ? lista.map((c) => {
     const sit = c.ticket ? `<span class="badge ${c.ticket.status}">${NOME_SIT[c.ticket.status]}${c.ticket.status === 'aguardando' ? ` · ${duracao(Date.now() - c.ticket.abertoEm)}` : ''}</span>` : '';
     return `<div class="item${aberta === c.id ? ' ativo' : ''}" data-id="${esc(c.id)}">
+      ${avatarHtml(c.id, c.nome || c.numero, 'peq')}
       <div class="l1"><span class="nome">${esc(c.nome || fone(c.numero) || c.id)}</span><span class="hora">${hora(c.hora)}</span></div>
       <div class="l2"><span class="ultima">${c.deMim ? '↪ ' : ''}${esc(c.ultima)}</span>${c.naoLidas ? `<span class="naolidas">${c.naoLidas}</span>` : ''}</div>
       ${sit || (c.etiquetas || []).length ? `<div class="l3">${sit}${(c.etiquetas || []).map(etqHtml).join('')}</div>` : ''}
@@ -972,7 +984,7 @@ async function abrirConversa(id, manter) {
   $('#conversa').innerHTML = `
     <div class="cab-conversa">
       <button class="botao icone fantasma" id="voltar" style="display:none" title="Voltar">${ic('voltar')}</button>
-      <div class="avatar">${esc(iniciais(nome))}</div>
+      ${avatarHtml(c.id, nome)}
       <div class="quem"><b>${esc(nome)} ${situacao}</b><span>${esc(fone(c.numero))}${t ? ` · Protocolo ${t.protocolo} · há ${duracao(Date.now() - t.abertoEm)}` : ''}</span></div>
       <div class="acoes">
         ${!t || t.status === 'aguardando' ? `<button class="botao primario" id="assumir">${ic('usuario')}Assumir</button>` : ''}
