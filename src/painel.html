@@ -207,7 +207,7 @@
   .grade-2, .grade-inicio { margin-bottom: var(--e5); } .grade-2 > .bloco, .grade-inicio > .bloco { margin-bottom: 0; }
 
   /* ================= Conversas ================= */
-  .lista { width: 340px; flex: none; background: var(--superficie); border-right: 1px solid var(--borda); display: flex; flex-direction: column; min-height: 0; }
+  .lista { width: var(--lista-w, 340px); flex: none; background: var(--superficie); border-right: 1px solid var(--borda); display: flex; flex-direction: column; min-height: 0; }
   .lista .topo-lista { padding: 14px; border-bottom: 1px solid var(--borda); display: grid; gap: 10px; }
   .busca { position: relative; }
   .busca .ic { position: absolute; left: 14px; top: 11px; color: var(--texto-3); }
@@ -234,7 +234,7 @@
   .busca-res b { display: block; }
   .busca-res mark { background: var(--nota); color: inherit; border-radius: 3px; padding: 0 1px; }
 
-  .conversa { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--fundo); }
+  .conversa { flex: 1; display: flex; flex-direction: column; min-width: 360px; background: var(--fundo); }
   .cab-conversa { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--superficie); border-bottom: 1px solid var(--borda); min-height: 64px; }
   .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--azul-2), var(--azul)); color: #fff; display: grid; place-items: center; font-weight: 700; flex: none; font-size: 14px; }
   .cab-conversa .quem { min-width: 0; flex: 1; }
@@ -269,7 +269,7 @@
   .faixa { padding: 8px 16px 0; font-size: 13px; color: var(--texto-2); display: none; align-items: center; gap: 8px; flex-wrap: wrap; }
   .aviso-envio { font-size: 12px; color: var(--texto-3); padding: 0 16px 10px; }
 
-  .lado { width: 330px; flex: none; background: var(--fundo); border-left: 1px solid var(--borda); overflow-y: auto; }
+  .lado { width: var(--lado-w, 330px); flex: none; background: var(--fundo); border-left: 1px solid var(--borda); overflow-y: auto; }
   .lado section { padding: 14px; margin: 10px; border: 1px solid var(--borda); border-radius: 16px; background: var(--superficie); }
   .lado h4 { margin: 0 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-3); font-weight: 650; display: flex; align-items: center; gap: 6px; }
   .lado .linha { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 4px 0; }
@@ -312,8 +312,17 @@
   .passos { margin: 0; padding-left: 20px; line-height: 2; }
   .grande { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 
+  /* Divisórias arrastáveis */
+  .divisor { flex: none; width: 9px; margin: 0 -4px; position: relative; z-index: 4; cursor: col-resize; touch-action: none; }
+  .divisor::before { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: transparent; transition: background-color .15s, width .15s, left .15s; }
+  .divisor::after { content: ""; position: absolute; top: 50%; left: 2px; width: 5px; height: 36px; margin-top: -18px; border-radius: 99px; background: var(--borda-forte); opacity: 0; transition: opacity .15s, background-color .15s; }
+  .divisor:hover::before, .divisor.arrastando::before { background: var(--azul); left: 3px; width: 3px; border-radius: 3px; }
+  .divisor:hover::after, .divisor.arrastando::after { opacity: 1; background: var(--azul); }
+  body.redimensionando, body.redimensionando * { cursor: col-resize !important; user-select: none !important; }
+  body.redimensionando iframe, body.redimensionando video, body.redimensionando img { pointer-events: none; }
+
   /* ================= Responsivo ================= */
-  @media (max-width: 1360px) { .lado { display: none; } .lado.mostrar { display: block; position: fixed; right: 0; top: 60px; bottom: 0; z-index: 15; box-shadow: var(--sombra-3); } }
+  @media (max-width: 1360px) { #div-lado { display: none; } .lado { display: none; } .lado.mostrar { display: block; position: fixed; right: 0; top: 60px; bottom: 0; z-index: 15; box-shadow: var(--sombra-3); } }
   @media (max-width: 1024px) {
     aside.menu { position: fixed; left: 0; top: 0; bottom: 0; transform: translateX(-100%); transition: transform .2s ease; width: var(--menu-largura) !important; box-shadow: var(--sombra-3); }
     body.menu-aberto aside.menu { transform: none; }
@@ -329,6 +338,7 @@
     header.topo { padding: 0 12px; } header.topo h1 { font-size: 15px; }
     .status-zap .txt { display: none; }
     .pagina { padding: var(--e4); }
+    .divisor { display: none; } .conversa { min-width: 0; }
     .lista { width: 100%; } .conversa { display: none; }
     .tem-conversa .lista { display: none; } .tem-conversa .conversa { display: flex; }
     .linha-form, .linha-edit, .linha-edit.etq-edit { grid-template-columns: 1fr; }
@@ -416,9 +426,11 @@
         </div>
         <div class="itens" id="itens"></div>
       </div>
+      <div class="divisor" id="div-lista" title="Arraste para mudar o tamanho · dois cliques volta ao padrão"></div>
       <div class="conversa" id="conversa">
         <div class="vazio" style="margin:auto"><div class="ico-grande"><svg class="ic" data-i="chat"></svg></div><b>Escolha uma conversa</b>Quem pediu atendente aparece primeiro, em <span class="badge aguardando">Aguardando</span></div>
       </div>
+      <div class="divisor" id="div-lado" title="Arraste para mudar o tamanho · dois cliques volta ao padrão"></div>
       <aside class="lado" id="lado"></aside>
     </section>
 
@@ -711,6 +723,66 @@ $('#recolher').addEventListener('click', () => {
 $('#abrir-menu').addEventListener('click', () => document.body.classList.add('menu-aberto'));
 $('#fundo-menu').addEventListener('click', () => document.body.classList.remove('menu-aberto'));
 
+// ================= Divisórias arrastáveis =================
+const PAINEIS = {
+  'div-lista': { var: '--lista-w', chave: 'largura-lista', padrao: 340, min: 240, max: 640, el: () => $('.lista'), lado: 1 },
+  'div-lado': { var: '--lado-w', chave: 'largura-lado', padrao: 330, min: 260, max: 560, el: () => $('#lado'), lado: -1 },
+};
+function aplicarLargura(cfg, px) {
+  const aba = $('#aba-conversas');
+  const outro = cfg.var === '--lista-w' ? $('#lado') : $('.lista');
+  const sobra = aba.clientWidth - (outro && outro.offsetParent ? outro.offsetWidth : 0) - 360; // mensagens nunca menores que 360px
+  const v = Math.round(Math.max(cfg.min, Math.min(cfg.max, sobra > cfg.min ? Math.min(px, sobra) : px)));
+  document.documentElement.style.setProperty(cfg.var, `${v}px`);
+  return v;
+}
+for (const [id, cfg] of Object.entries(PAINEIS)) {
+  const salvo = Number(lerLocal(cfg.chave));
+  if (salvo) document.documentElement.style.setProperty(cfg.var, `${salvo}px`);
+  const d = document.getElementById(id);
+  d.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    d.setPointerCapture(e.pointerId);
+    const x0 = e.clientX, w0 = cfg.el().offsetWidth;
+    let final = w0;
+    d.classList.add('arrastando');
+    document.body.classList.add('redimensionando');
+    const mover = (ev) => { final = aplicarLargura(cfg, w0 + (ev.clientX - x0) * cfg.lado); };
+    const soltar = () => {
+      d.releasePointerCapture(e.pointerId);
+      d.removeEventListener('pointermove', mover);
+      d.classList.remove('arrastando');
+      document.body.classList.remove('redimensionando');
+      gravarLocal(cfg.chave, String(final));
+    };
+    d.addEventListener('pointermove', mover);
+    d.addEventListener('pointerup', soltar, { once: true });
+    d.addEventListener('pointercancel', soltar, { once: true });
+  });
+  d.addEventListener('dblclick', () => {
+    document.documentElement.style.setProperty(cfg.var, `${cfg.padrao}px`);
+    gravarLocal(cfg.chave, '');
+    som('tema');
+  });
+  // Teclado: setas mudam 20px
+  d.tabIndex = 0;
+  d.setAttribute('role', 'separator');
+  d.setAttribute('aria-orientation', 'vertical');
+  d.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const v = aplicarLargura(cfg, cfg.el().offsetWidth + (e.key === 'ArrowRight' ? 20 : -20) * cfg.lado);
+    gravarLocal(cfg.chave, String(v));
+  });
+}
+
+function ajustarLarguras() {
+  if (!$('#aba-conversas').classList.contains('ativa') || matchMedia('(max-width: 760px)').matches) return;
+  for (const cfg of Object.values(PAINEIS)) { const el = cfg.el(); if (el && el.offsetParent) aplicarLargura(cfg, el.offsetWidth); }
+}
+window.addEventListener('resize', () => { clearTimeout(window.__tl); window.__tl = setTimeout(ajustarLarguras, 120); });
+
 // ================= Navegação =================
 let conversas = [];
 let aberta = null;
@@ -731,6 +803,7 @@ function abrirAba(nome) {
   $$('#nav button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === nome));
   $$('.aba').forEach((a) => a.classList.toggle('ativa', a.id === `aba-${nome}`));
   $('#titulo-pagina').textContent = TITULOS[nome] || '';
+  if (nome === 'conversas') requestAnimationFrame(ajustarLarguras);
   if (nome === 'inicio') carregarInicio();
   if (nome === 'fila') carregarFila();
   if (nome === 'relatorios') { carregarDia(); carregarRelatorio(); }
