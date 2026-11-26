@@ -411,7 +411,9 @@
     <button data-aba="conversas" title="Conversas"><svg class="ic" data-i="chat"></svg><span class="txt">Conversas</span></button>
     <button data-aba="fila" title="Atendimentos" id="nav-fila"><svg class="ic" data-i="fila"></svg><span class="txt">Atendimentos</span><span class="contador" id="cont-fila" hidden></span></button>
     <div class="grupo">Gestão</div>
-    <button data-aba="relatorios" title="Relatórios"><svg class="ic" data-i="grafico"></svg><span class="txt">Relatórios</span></button>
+    <button data-aba="relatend" title="Relatório de atendimento"><svg class="ic" data-i="grafico"></svg><span class="txt">Relatório de atendimento</span></button>
+    <button data-aba="relatorios" title="Relatório do bot"><svg class="ic" data-i="robo"></svg><span class="txt">Relatório do bot</span></button>
+    <button data-aba="caixa" title="Fechar caixa"><svg class="ic" data-i="dinheiro"></svg><span class="txt">Fechar caixa</span></button>
     <button data-aba="config" title="Configurações"><svg class="ic" data-i="engrenagem"></svg><span class="txt">Configurações</span></button>
     <button data-aba="zap" title="WhatsApp"><svg class="ic" data-i="celular"></svg><span class="txt">WhatsApp</span></button>
   </nav>
@@ -458,7 +460,7 @@
             <div class="corpo"><div class="barras-h" id="inicio-bot"></div></div>
           </div>
           <div class="bloco">
-            <div class="cab"><h3>Últimos 7 dias</h3><button class="botao peq acao" data-ir="relatorios">Relatórios</button></div>
+            <div class="cab"><h3>Últimos 7 dias</h3><button class="botao peq acao" data-ir="relatend">Ver relatório</button></div>
             <div class="corpo" id="inicio-semana"></div>
           </div>
         </div>
@@ -494,21 +496,48 @@
     </section>
 
     <!-- ================= Relatórios ================= -->
-    <section class="aba" id="aba-relatorios">
+    <section class="aba" id="aba-relatend">
       <div class="pagina"><div class="conteudo">
-        <div class="titulo-pag"><div><h2>Atendimentos humanos</h2><p>Do momento em que o cliente entra na fila até o encerramento.</p></div>
-          <div class="acao seg" id="periodo"><button data-dias="1">Hoje</button><button data-dias="7" class="ativo">7 dias</button><button data-dias="30">30 dias</button><button data-dias="90">90 dias</button></div>
+        <div class="titulo-pag"><div><h2>Relatório de atendimento</h2><p>Atendimentos humanos: do momento em que o cliente entra na fila até o encerramento.</p></div>
+          <div class="acao" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <select class="campo" id="rel-atendente" style="width:auto;height:36px;border-radius:var(--r-pilula)"><option value="">Todos os atendentes</option></select>
+            <div class="seg" id="periodo"><button data-dias="1">Hoje</button><button data-dias="7" class="ativo">7 dias</button><button data-dias="30">30 dias</button><button data-dias="90">90 dias</button><button data-dias="365">1 ano</button></div>
+          </div>
         </div>
         <div class="kpis" id="rel-kpis"></div>
         <div class="bloco"><div class="cab"><h3>Atendimentos por dia</h3></div><div class="corpo"><div class="grafico" id="rel-grafico"></div></div></div>
         <div class="grade-2">
-          <div class="bloco"><div class="cab"><h3>Por etiqueta</h3></div><div class="corpo"><div class="barras-h" id="rel-etiquetas"></div></div></div>
-          <div class="bloco"><div class="cab"><h3>Como começaram</h3></div><div class="corpo"><div class="barras-h" id="rel-motivos"></div></div></div>
+          <div class="bloco"><div class="cab"><h3>Por atendente</h3><span class="msg acao">quem assumiu ou respondeu pelo painel</span></div><div class="corpo"><div class="barras-h" id="rel-atendentes"></div></div></div>
+          <div class="bloco"><div class="cab"><h3>Motivo do repasse</h3></div><div class="corpo"><div class="barras-h" id="rel-motivos"></div></div></div>
         </div>
-        <div class="bloco"><div class="cab"><h3>Por atendente</h3><span class="msg acao">quem assumiu ou respondeu pelo painel</span></div><div class="corpo"><div class="barras-h" id="rel-atendentes"></div></div></div>
-        <div class="titulo-pag" style="margin-top:8px"><div><h2>Hoje pelo bot</h2><p id="dia-sub">Contado no log de hoje do bot.</p></div></div>
+        <div class="bloco"><div class="cab"><h3>Por etiqueta</h3></div><div class="corpo"><div class="barras-h" id="rel-etiquetas"></div></div></div>
+        <div class="bloco">
+          <div class="cab"><h3>Atendimentos encerrados</h3><span class="msg" id="rel-qtd"></span>
+            <div class="acao" style="display:flex;gap:8px"><input class="campo" id="rel-busca" placeholder="Buscar cliente, protocolo ou motivo" style="height:32px;width:240px;border-radius:var(--r-pilula)"><button class="botao peq" id="rel-csv">Baixar planilha (CSV)</button></div>
+          </div>
+          <div class="corpo sem-pad tabela-wrap" id="rel-tabela"></div>
+        </div>
+      </div></div>
+    </section>
+
+    <section class="aba" id="aba-relatorios">
+      <div class="pagina"><div class="conteudo">
+        <div class="titulo-pag"><div><h2>Relatório do bot</h2><p id="dia-sub">Contado no log de hoje do bot.</p></div></div>
         <div class="kpis" id="dia-kpis"></div>
         <details class="bloco log-dev"><summary>Log técnico do bot <span class="msg" style="font-weight:500">para conferir problemas · atualiza sozinho</span></summary><div class="corpo"><div id="log" style="font:12px/1.6 var(--mono);background:var(--superficie-2);border-radius:var(--r-peq);padding:10px 12px;height:320px;overflow-y:auto;white-space:pre-wrap;word-break:break-word"></div></div></details>
+      </div></div>
+    </section>
+
+    <section class="aba" id="aba-caixa">
+      <div class="pagina"><div class="conteudo">
+        <div class="titulo-pag"><div><h2>Fechamento de caixa</h2><p>Escolha o local e o dia. Os pagamentos vêm do SGP pelos usuários de cada caixa.</p></div></div>
+        <div class="bloco"><div class="corpo" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div><label class="rotulo">Local (caixa)</label><select class="campo" id="cx-local" style="min-width:220px"></select></div>
+          <div><label class="rotulo">Data</label><input type="date" class="campo" id="cx-data"></div>
+          <button class="botao primario" id="cx-buscar"><svg class="ic" data-i="busca"></svg>Buscar pagamentos</button>
+          <span class="msg" id="cx-usuarios"></span>
+        </div></div>
+        <div id="cx-resultado"></div>
       </div></div>
     </section>
 
@@ -630,6 +659,8 @@ const ICONES = {
   cadeado: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
   'seta-baixo': '<path d="m6 9 6 6 6-6"/>',
+  calendario: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>',
+  robo: '<rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 17h6"/>',
   som: '<path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>',
   'som-off': '<path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="m22 9-6 6M16 9l6 6"/>',
 };
@@ -906,7 +937,7 @@ $('#quem').addEventListener('click', (e) => {
 document.addEventListener('click', (e) => { if (!e.target.closest('.quem-atende')) $('#menu-quem').classList.remove('aberto'); });
 const corEtq = (nome) => (config.etiquetas.find((e) => e.nome === nome) || {}).cor || 'gray';
 const etqHtml = (nome) => `<span class="etq ${corEtq(nome)}">${esc(nome)}</span>`;
-const TITULOS = { inicio: 'Visão geral', conversas: 'Conversas', fila: 'Atendimentos', relatorios: 'Relatórios', config: 'Configurações', zap: 'WhatsApp' };
+const TITULOS = { inicio: 'Visão geral', conversas: 'Conversas', fila: 'Atendimentos', relatend: 'Relatório de atendimento', relatorios: 'Relatório do bot', caixa: 'Fechar caixa', config: 'Configurações', zap: 'WhatsApp' };
 $$('#nav button').forEach((b) => b.addEventListener('click', () => abrirAba(b.dataset.aba)));
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-ir]'); if (b) abrirAba(b.dataset.ir); });
 $('#status-zap').addEventListener('click', () => abrirAba('zap'));
@@ -919,7 +950,9 @@ function abrirAba(nome) {
   if (nome === 'conversas') requestAnimationFrame(ajustarLarguras);
   if (nome === 'inicio') carregarInicio();
   if (nome === 'fila') carregarFila();
-  if (nome === 'relatorios') { carregarDia(); carregarRelatorio(); }
+  if (nome === 'relatorios') carregarDia();
+  if (nome === 'relatend') carregarRelatorio();
+  if (nome === 'caixa') carregarCaixas();
   if (nome === 'config') carregarConfig();
   if (nome === 'zap') carregarStatus();
 }
@@ -983,6 +1016,7 @@ async function carregarInicio() {
 }
 function graficoBarras(el, dados) {
   const max = Math.max(1, ...dados.map((d) => d.v));
+  el.style.gap = dados.length > 120 ? '0' : dados.length > 45 ? '1px' : '';
   el.innerHTML = dados.map((d) => `<div class="barra"><span class="dica">${esc(d.dica)}</span><i class="${d.v ? '' : 'zero'}" style="height:${Math.max(2, (d.v / max) * 100)}%"></i><span>${esc(d.rot)}</span></div>`).join('');
 }
 
@@ -1304,7 +1338,7 @@ async function desenharLado(c, doc) {
       ${k.referencia ? `<div class="linha"><span>Referência</span><span>${esc(k.referencia)}</span></div>` : ''}
       ${(k.telefones || []).length ? `<div class="linha"><span>Telefones</span><span>${k.telefones.map((x) => esc(fone(x))).join('<br>')}</span></div>` : ''}
       <h4 style="margin-top:14px">${ic('boleto')}Faturas em aberto</h4>
-      ${f.faturas.length ? f.faturas.map((x, i) => `<div class="fatura" style="align-items:center;gap:8px"><span>${esc(dataBR(x.vencimento))}</span><span style="margin-left:auto">${x.link ? `<a href="${esc(x.link)}" target="_blank">${dinheiro(x.valor)}</a>` : dinheiro(x.valor)}</span>${x.link ? `<button class="botao peq" data-boleto="${i}" title="Colocar o boleto na caixa de texto para enviar">Enviar</button>` : ''}</div>`).join('') : '<p class="msg" style="margin:0">Nenhuma em aberto ✅</p>'}
+      ${f.faturas.length ? f.faturas.map((x, i) => `<div class="fatura" style="align-items:center;gap:8px"><span>${esc(dataBR(x.vencimento))}</span><span style="margin-left:auto">${x.link ? `<a href="${esc(x.link)}" target="_blank">${dinheiro(x.valor)}</a>` : dinheiro(x.valor)}</span>${x.link || x.pix || x.linha ? `<button class="botao peq primario" data-boleto="${i}" title="Envia o boleto${x.pix ? ', o PIX copia e cola' : ''}${x.linha ? ' e o código de barras' : ''}">Enviar</button>` : ''}${x.pix ? `<button class="botao peq" data-pix="${i}" title="Copiar o PIX copia e cola">PIX</button>` : ''}</div>`).join('') : '<p class="msg" style="margin:0">Nenhuma em aberto ✅</p>'}
       <div class="acoes-ficha">
         <button class="botao peq" id="acao-liberar">${ic('check')}Liberação de confiança</button>
         <button class="botao peq" id="acao-chamado">${ic('ferramenta')}Abrir ocorrência</button>
@@ -1327,9 +1361,22 @@ function colocarNaCaixa(texto) {
 }
 function ligarAcoesFicha(c, f) {
   const k = f.contrato;
-  $$('#lado-ficha [data-boleto]').forEach((b) => b.addEventListener('click', () => {
+  $$('#lado-ficha [data-boleto]').forEach((b) => b.addEventListener('click', async () => {
     const x = f.faturas[Number(b.dataset.boleto)];
-    colocarNaCaixa(`Segue o boleto com vencimento em ${dataBR(x.vencimento)}, no valor de ${dinheiro(x.valor)}:\n${x.link}`);
+    const itens = [x.link ? 'o boleto em PDF' : 'o valor e o vencimento', x.pix ? 'o PIX copia e cola' : '', x.linha ? 'o código de barras' : ''].filter(Boolean);
+    if (!(await confirmar('Enviar boleto ao cliente?', `Vencimento ${dataBR(x.vencimento)} · ${dinheiro(x.valor)}. Vão ${itens.join(', ').replace(/, ([^,]*)$/, ' e $1')}, cada um em uma mensagem para o cliente copiar fácil.`, { botao: 'Enviar' }))) return;
+    if (!conferirAtendente()) return;
+    b.disabled = true;
+    try {
+      await api('/api/enviar-boleto', { id: c.id, fatura: x, atendente: atendenteAtual });
+      toast('Boleto enviado ao cliente.', 'ok');
+      setTimeout(() => abrirConversa(c.id, true), 1200);
+    } catch (e) { toast(`Não enviou: ${e.message}`, 'erro'); } finally { b.disabled = false; }
+  }));
+  $$('#lado-ficha [data-pix]').forEach((b) => b.addEventListener('click', async () => {
+    const x = f.faturas[Number(b.dataset.pix)];
+    try { await navigator.clipboard.writeText(String(x.pix)); toast('PIX copia e cola copiado. É só colar onde precisar.', 'ok'); }
+    catch { colocarNaCaixa(String(x.pix)); }
   }));
   $('#acao-liberar').addEventListener('click', async () => {
     if (!(await confirmar('Liberação de confiança', `Pedir ao SGP a liberação em confiança do contrato ${k.id} (${k.nome || 'cliente'})? O SGP aplica as regras dele e pode negar.`, { botao: 'Liberar' }))) return;
@@ -1427,9 +1474,52 @@ async function carregarDia() {
 }
 let diasRel = 7;
 $$('#periodo button').forEach((b) => b.addEventListener('click', () => { diasRel = Number(b.dataset.dias); $$('#periodo button').forEach((x) => x.classList.toggle('ativo', x === b)); carregarRelatorio(); }));
+let relAtual = null;
+$('#rel-atendente').addEventListener('change', carregarRelatorio);
+$('#rel-busca').addEventListener('input', desenharTabelaRel);
+const COMO = { 'encerrado no painel': 'Encerrado no painel', 'bot religado no painel': 'Bot religado no painel', '#bot': 'Comando #bot', 'atendente encerrou': 'Mensagem de encerramento', 'bot voltou': 'Pausa do bot terminou' };
+function linhasRelFiltradas() {
+  const q = $('#rel-busca').value.trim().toLowerCase();
+  const qn = q.replace(/\D/g, '');
+  return (relAtual ? relAtual.atendimentos : []).filter((t) => !q || [t.nome, t.protocolo, t.motivo, t.atendente].some((x) => String(x || '').toLowerCase().includes(q)) || (qn.length >= 4 && String(t.numero).includes(qn)));
+}
+function desenharTabelaRel() {
+  const lista = linhasRelFiltradas();
+  $('#rel-qtd').textContent = relAtual ? `${lista.length} de ${relAtual.atendimentos.length}` : '';
+  const dh = (ms) => new Date(ms).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  $('#rel-tabela').innerHTML = lista.length ? `<table class="tabela cards-mobile"><thead><tr><th>Cliente</th><th>Atendente</th><th>Motivo</th><th>Entrou</th><th>1ª resposta</th><th>Duração</th><th>Encerrado</th></tr></thead><tbody>${lista.slice(0, 300).map((t) => `<tr class="clicavel" data-id="${esc(t.chatId)}">
+      <td><b>${esc(t.nome || fone(t.numero) || 'Cliente')}</b><div class="sec">${t.protocolo}${t.etiquetas.length ? ` · ${t.etiquetas.map(esc).join(', ')}` : ''}</div></td>
+      <td data-r="Atendente">${t.atendente ? `<span class="por-quem">${esc(t.atendente)}</span>` : '<span class="sec">–</span>'}</td>
+      <td data-r="Motivo" class="sec">${esc(t.motivo || '–')}</td>
+      <td data-r="Entrou">${dh(t.abertoEm)}</td>
+      <td data-r="1ª resposta">${t.primeiraRespostaEm ? duracao(t.primeiraRespostaEm - t.abertoEm) : '<span class="badge aguardando">sem resposta</span>'}</td>
+      <td data-r="Duração">${duracao(t.encerradoEm - t.abertoEm)}</td>
+      <td data-r="Encerrado" class="sec">${dh(t.encerradoEm)}<br>${esc(COMO[t.como] || t.como || '')}</td></tr>`).join('')}</tbody></table>${lista.length > 300 ? '<p class="msg" style="padding:10px 20px;margin:0">Mostrando os 300 mais recentes. A planilha traz todos.</p>' : ''}`
+    : `<div class="vazio"><div class="ico-grande">${ic('grafico')}</div><b>Nenhum atendimento encerrado</b>Os atendimentos aparecem aqui quando são encerrados.</div>`;
+  $$('#rel-tabela tr.clicavel').forEach((tr) => tr.addEventListener('click', () => { abrirAba('conversas'); abrirConversa(tr.dataset.id); }));
+}
+$('#rel-csv').addEventListener('click', () => {
+  const lista = linhasRelFiltradas();
+  if (!lista.length) return toast('Nada para baixar no período.', 'alerta');
+  const dh = (ms) => (ms ? new Date(ms).toLocaleString('pt-BR') : '');
+  const min = (a, b) => (a && b ? Math.round((b - a) / 60000) : '');
+  const cab = ['Protocolo', 'Cliente', 'Telefone', 'Atendente', 'Motivo', 'Etiquetas', 'Entrou', '1ª resposta (min)', 'Duração (min)', 'Encerrado', 'Como encerrou'];
+  const linhas = lista.map((t) => [t.protocolo, t.nome, fone(t.numero), t.atendente, t.motivo, t.etiquetas.join(', '), dh(t.abertoEm), min(t.abertoEm, t.primeiraRespostaEm), min(t.abertoEm, t.encerradoEm), dh(t.encerradoEm), COMO[t.como] || t.como]);
+  const csv = '\ufeff' + [cab, ...linhas].map((l) => l.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `atendimentos-${diasRel}dias${$('#rel-atendente').value ? `-${$('#rel-atendente').value}` : ''}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
 async function carregarRelatorio() {
-  const r = await api(`/api/relatorio?dias=${diasRel}`).catch(() => null);
+  const quem = $('#rel-atendente').value;
+  const r = await api(`/api/relatorio?dias=${diasRel}${quem ? `&atendente=${encodeURIComponent(quem)}` : ''}`).catch(() => null);
   if (!r) return;
+  relAtual = r;
+  const nomes = [...new Set([...(config.atendentes || []), ...(r.atendentes || [])])];
+  $('#rel-atendente').innerHTML = `<option value="">Todos os atendentes</option>${nomes.map((n) => `<option${n === quem ? ' selected' : ''}>${esc(n)}</option>`).join('')}<option value="-"${quem === '-' ? ' selected' : ''}>Sem atendente definido</option>`;
+  desenharTabelaRel();
   $('#rel-kpis').innerHTML = [
     ['check', 'Atendimentos encerrados', r.total, ''], ['relogio', 'Tempo até a 1ª resposta', minTxt(r.mediaPrimeiraMin), ''],
     ['ampulheta', 'Tempo de atendimento', minTxt(r.mediaTotalMin), ''], ['alerta', 'Encerrados sem resposta', r.semResposta, r.semResposta ? 'alerta' : 'ok'],
@@ -1444,6 +1534,84 @@ async function carregarRelatorio() {
   $('#rel-etiquetas').innerHTML = barras(r.porEtiqueta);
   $('#rel-motivos').innerHTML = barras(r.porMotivo);
   $('#rel-atendentes').innerHTML = barras(r.porAtendente || []);
+}
+
+// ================= Fechamento de caixa =================
+let cxDados = null;
+async function carregarCaixas() {
+  if ($('#cx-local').options.length) return;
+  const r = await api('/api/caixas').catch(() => null);
+  if (!r) return;
+  if (!$('#cx-data').value) $('#cx-data').value = r.hoje;
+  $('#cx-data').max = r.hoje;
+  $('#cx-local').innerHTML = r.caixas.length ? r.caixas.map((c) => `<option value="${c.i}" data-usuarios="${esc(c.usuarios.join(', '))}">${esc(c.nome)}</option>`).join('') : '<option value="">Nenhum caixa configurado</option>';
+  const salvo = lerLocal('caixa-local');
+  if (salvo && r.caixas.some((c) => String(c.i) === salvo)) $('#cx-local').value = salvo;
+  mostrarUsuariosCaixa();
+}
+function mostrarUsuariosCaixa() {
+  const o = $('#cx-local').selectedOptions[0];
+  $('#cx-usuarios').textContent = o && o.dataset.usuarios ? `Usuários do SGP: ${o.dataset.usuarios}` : 'Configure os caixas em Configurações › Configurações do bot (Caixas).';
+}
+$('#cx-local').addEventListener('change', () => { gravarLocal('caixa-local', $('#cx-local').value); mostrarUsuariosCaixa(); $('#cx-resultado').innerHTML = ''; });
+$('#cx-data').addEventListener('change', () => { $('#cx-resultado').innerHTML = ''; });
+$('#cx-buscar').addEventListener('click', async () => {
+  const caixa = $('#cx-local').value, data = $('#cx-data').value;
+  if (caixa === '' || !data) return toast('Escolha o local e a data.', 'alerta');
+  $('#cx-resultado').innerHTML = '<div class="bloco"><div class="carregando" style="padding:40px"><i></i>Buscando pagamentos no SGP…</div></div>';
+  try { cxDados = await api(`/api/caixa/pagamentos?caixa=${caixa}&data=${data}`); }
+  catch (e) { $('#cx-resultado').innerHTML = ''; return toast(e.message, 'erro'); }
+  desenharCaixa();
+});
+function desenharCaixa() {
+  const d = cxDados;
+  if (!d.pagamentos.length) {
+    $('#cx-resultado').innerHTML = `<div class="bloco"><div class="vazio"><div class="ico-grande">${ic('dinheiro')}</div><b>Nenhum pagamento</b>Nada recebido em ${dataBR(d.data)} pelos usuários ${esc(d.usuarios.join(', '))}.</div></div>`;
+    return;
+  }
+  $('#cx-resultado').innerHTML = `
+    <div class="kpis" id="cx-kpis"></div>
+    <div class="grade-2"><div class="bloco"><div class="cab"><h3>Por forma de pagamento</h3></div><div class="corpo"><div class="barras-h" id="cx-formas"></div></div></div>
+      <div class="bloco"><div class="cab"><h3>Por portador</h3></div><div class="corpo"><div class="barras-h" id="cx-portadores"></div></div></div></div>
+    <div class="bloco">
+      <div class="cab"><h3>Pagamentos de ${dataBR(d.data)} · ${esc(d.caixa)}</h3>${d.compartilhado ? '<span class="badge aguardando">usuário dividido com outro caixa: desmarque o que não for deste local</span>' : ''}
+        <label class="acao" style="display:flex;gap:6px;align-items:center;font-size:13px;cursor:pointer"><input type="checkbox" id="cx-todos" checked style="accent-color:var(--azul)">Todos</label></div>
+      <div class="corpo sem-pad tabela-wrap"><table class="tabela cards-mobile"><thead><tr><th></th><th>Hora</th><th>Cliente</th><th>Contrato</th><th>Forma</th><th>Usuário</th><th style="text-align:right">Valor</th></tr></thead><tbody>
+        ${d.pagamentos.map((p, i) => `<tr><td><input type="checkbox" data-cx="${i}" checked style="width:16px;height:16px;accent-color:var(--azul)"></td><td data-r="Hora">${esc(p.hora)}</td><td><b>${esc(p.cliente || 'Cliente')}</b><div class="sec">${esc(p.cpf)}</div></td><td data-r="Contrato">${esc(p.contrato ?? '')}</td><td data-r="Forma">${esc(p.forma || '–')}</td><td data-r="Usuário" class="sec">${esc(p.usuario)}</td><td data-r="Valor" style="text-align:right;font-variant-numeric:tabular-nums"><b>${dinheiro(p.valor)}</b></td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="barra-acoes"><button class="botao primario" id="cx-fechar">${ic('check')}Gerar fechamento</button><span class="msg">Abre o relatório para imprimir ou salvar em PDF.</span></div>
+    </div>`;
+  const recalcular = () => {
+    const sel = d.pagamentos.filter((_, i) => $(`[data-cx="${i}"]`).checked);
+    const total = sel.reduce((a, p) => a + (Number(p.valor) || 0), 0);
+    $('#cx-kpis').innerHTML = [['dinheiro', 'Total recebido', dinheiro(total), 'ok'], ['check', 'Pagamentos', `${sel.length} de ${d.pagamentos.length}`, ''], ['calendario', 'Dia', dataBR(d.data), '']]
+      .map(([i, r, v, c]) => `<div class="kpi"><div class="ico ${c}">${ic(i)}</div><div><div class="rot">${r}</div><div class="num">${v}</div></div></div>`).join('');
+    const grupo = (campo, vazio) => {
+      const m = {};
+      for (const p of sel) { const k = p[campo] || vazio; m[k] = m[k] || { nome: k, n: 0, v: 0 }; m[k].n++; m[k].v += Number(p.valor) || 0; }
+      const l = Object.values(m).sort((a, b) => b.v - a.v);
+      const max = Math.max(1, ...l.map((x) => x.v));
+      return l.length ? l.map((x) => `<div style="grid-template-columns:130px 1fr 110px"><span title="${esc(x.nome)}">${esc(x.nome)} (${x.n})</span><div class="trilho"><i style="width:${(x.v / max) * 100}%"></i></div><b>${dinheiro(x.v)}</b></div>`).join('') : '<p class="msg" style="margin:0">Nenhum selecionado.</p>';
+    };
+    $('#cx-formas').innerHTML = grupo('forma', 'Não informada');
+    $('#cx-portadores').innerHTML = grupo('portador', 'Sem portador');
+    $('#cx-todos').checked = sel.length === d.pagamentos.length;
+    return sel;
+  };
+  $$('[data-cx]').forEach((x) => x.addEventListener('change', recalcular));
+  $('#cx-todos').addEventListener('change', () => { $$('[data-cx]').forEach((x) => { x.checked = $('#cx-todos').checked; }); recalcular(); });
+  recalcular();
+  $('#cx-fechar').addEventListener('click', async () => {
+    const sel = recalcular();
+    if (!sel.length) return toast('Marque pelo menos um pagamento.', 'alerta');
+    const janela = window.open('', '_blank');
+    try {
+      const r = await api('/api/caixa/fechamento', { caixa: $('#cx-local').value, data: d.data, pagamentos: sel, atendente: atendenteAtual });
+      if (janela) { janela.document.open(); janela.document.write(r.html); janela.document.close(); setTimeout(() => janela.print(), 600); }
+      else toast('O navegador bloqueou a janela do relatório. Permita pop-ups para este endereço.', 'alerta');
+      toast(`Fechamento gerado: ${sel.length} pagamento(s).`, 'ok');
+    } catch (e) { if (janela) janela.close(); toast(e.message, 'erro'); }
+  });
 }
 
 // ================= Configurações =================
@@ -1607,7 +1775,7 @@ carregarInicio();
 conectarEventos();
 setInterval(carregarStatus, 15000);
 setInterval(() => { if (abaAtual === 'conversas' && !buscaAtiva()) desenharLista(); if (abaAtual === 'fila') carregarFila(); if (abaAtual === 'inicio') carregarInicio(); }, 30000);
-setInterval(() => { if (abaAtual === 'relatorios') { carregarDia(); carregarRelatorio(); } }, 60000);
+setInterval(() => { if (abaAtual === 'relatorios') carregarDia(); if (abaAtual === 'relatend') carregarRelatorio(); }, 60000);
 </script>
 </body>
 </html>

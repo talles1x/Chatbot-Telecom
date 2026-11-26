@@ -5,6 +5,9 @@
 // Sem dependências extras: servidor http do Node e eventos ao vivo (Server-Sent Events).
 const http = require('http');
 const fs = require('fs');
+const u = require('./util');
+const { htmlFechamento } = require('./relatorio');
+const nomeBonito = (n) => require('./fluxo').nomeBonito(n);
 const path = require('path');
 
 const RAIZ = path.join(__dirname, '..');
@@ -273,7 +276,7 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       doc: busca || lembrado.doc || '',
       contrato: escolhido,
       outros: contratos.filter((c) => c !== escolhido).map((c) => ({ id: c.id, status: c.status, endereco: c.endereco })),
-      faturas: faturas.slice(0, 6).map((f) => ({ vencimento: f.vencimento, valor: f.valor, link: f.link })),
+      faturas: faturas.slice(0, 6).map((f) => ({ vencimento: f.vencimento, valor: f.valor, link: f.link, pix: f.pix, linha: f.linha })),
       online,
     };
   }
@@ -387,6 +390,62 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
         return responder(res, 200, await ficha(url.searchParams.get('id'), url.searchParams.get('doc')).catch((e) => ({ encontrado: false, erro: e.message })));
       }
       // Ações do atendente na ficha (cliente já identificado)
+      // Boleto do cliente: igual o bot manda (texto + PIX copia e cola + código de barras, cada um sozinho para copiar)
+      if (rota === 'POST /api/enviar-boleto') {
+        const { id, fatura, atendente } = await corpo(req);
+        if (!id || !fatura) return responder(res, 400, { erro: 'faltou a conversa ou o boleto' });
+        const moeda = (v) => Number(String(v ?? 0).replace(',', '.')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const data = (d) => { const m = String(d || '').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d || ''); };
+        const msgs = [`📄 *Boleto com vencimento em ${data(fatura.vencimento)}*\nValor: *${moeda(fatura.valor)}*${fatura.link ? `\n\nBoleto em PDF: ${fatura.link}` : ''}`];
+        if (fatura.pix) msgs.push('💠 *PIX copia e cola* (toque e segure a próxima mensagem para copiar):', String(fatura.pix));
+        if (fatura.linha) msgs.push('🔢 *Código de barras* (para pagar no app do banco ou na lotérica):', String(fatura.linha));
+        for (const m of msgs) {
+          await client.sendMessage(id, m);
+          await new Promise((r) => setTimeout(r, 700));
+        }
+        if (atendimento.ticket(id)) atendimento.respondeu(id, { atendente });
+        registrar(`[painel] boleto (venc. ${data(fatura.vencimento)}${fatura.pix ? ' + PIX' : ''}${fatura.linha ? ' + código de barras' : ''}) enviado${atendente ? ` por ${String(atendente).trim()}` : ''}`);
+        return responder(res, 200, { ok: true, enviadas: msgs.length });
+      }
+      // ---------- Fechamento de caixa pelo painel ----------
+      if (rota === 'GET /api/caixas') {
+        return responder(res, 200, { hoje: u.agoraLocal().hojeISO, caixas: cfg.caixas.map((c, i) => ({ i, nome: c.nome || `Caixa ${i + 1}`, usuarios: c.usuarios || [] })) });
+      }
+      if (rota === 'GET /api/caixa/pagamentos') {
+        const caixa = cfg.caixas[Number(url.searchParams.get('caixa'))];
+        const data = String(url.searchParams.get('data') || '').slice(0, 10);
+        if (!caixa) return responder(res, 400, { erro: 'escolha o caixa' });
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return responder(res, 400, { erro: 'data inválida' });
+        if (!(caixa.usuarios || []).length) return responder(res, 400, { erro: `o caixa "${caixa.nome}" está sem usuário do SGP no .env (CAIXAS)` });
+        const pagos = await sgp.titulosPagos(data);
+        const usuarios = caixa.usuarios.map((x) => x.toLowerCase());
+        const lista = pagos.filter((p) => usuarios.includes(String(p.usuario).toLowerCase()))
+          .sort((a, b) => a.data.localeCompare(b.data) || String(a.id).localeCompare(String(b.id)))
+          .map((p) => ({ id: p.id, hora: (p.data.match(/(\d{2}:\d{2})/) || [])[1] || '', contrato: p.contrato, cliente: nomeBonito(p.cliente || ''), cpf: p.cpf ? u.formatarDoc(p.cpf) : '', forma: p.forma, portador: p.portador, usuario: p.usuario, valor: p.valor }));
+        const compartilhado = cfg.caixas.some((c) => c !== caixa && (c.usuarios || []).some((x) => usuarios.includes(String(x).toLowerCase())));
+        return responder(res, 200, { caixa: caixa.nome, usuarios: caixa.usuarios, data, compartilhado, pagamentos: lista });
+      }
+      if (rota === 'POST /api/caixa/fechamento') {
+        const { caixa: ci, data, pagamentos, atendente } = await corpo(req);
+        const caixa = cfg.caixas[Number(ci)];
+        if (!caixa || !Array.isArray(pagamentos)) return responder(res, 400, { erro: 'faltou o caixa ou os pagamentos' });
+        const agrupar = (campo, vazio) => {
+          const m = {};
+          for (const p of pagamentos) { const k = p[campo] || vazio; m[k] = m[k] || { nome: k, n: 0, v: 0 }; m[k].n++; m[k].v += Number(p.valor) || 0; }
+          return Object.values(m).sort((a, b) => b.v - a.v);
+        };
+        const porPortador = agrupar('portador', 'Sem portador');
+        const hojeISO = u.agoraLocal().hojeISO;
+        const hora = new Date().toLocaleTimeString('pt-BR', { timeZone: cfg.fuso, hour: '2-digit', minute: '2-digit' });
+        const html = htmlFechamento({
+          empresa: cfg.empresa, local: caixa.nome, data: u.dataBR(data), hora: data === hojeISO ? hora : 'dia inteiro', usuarios: caixa.usuarios,
+          pagamentos, total: pagamentos.reduce((s2, p) => s2 + (Number(p.valor) || 0), 0),
+          porForma: agrupar('forma', 'Não informada'), porPortador: porPortador.length > 1 ? porPortador : [],
+          geradoEm: `${u.dataBR(hojeISO)} às ${hora}${atendente ? ` por ${String(atendente).trim()}` : ''} (painel)`,
+        });
+        registrar(`[caixa] fechamento pelo painel: ${caixa.nome} ${u.dataBR(data)} - ${pagamentos.length} pagamento(s)${atendente ? ` por ${String(atendente).trim()}` : ''}`);
+        return responder(res, 200, { html });
+      }
       if (rota === 'POST /api/liberar') {
         const { contrato, atendente } = await corpo(req);
         if (!contrato) return responder(res, 400, { erro: 'faltou o contrato' });
@@ -412,7 +471,7 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
         return responder(res, 200, atendimento.fila().map((t) => ({ ...t, nome: t.nome || nomes.get(t.chatId) || atendimento.nomeSgp(t.chatId) || '', etiquetas: atendimento.etiquetasDe(t.chatId) })));
       }
       if (rota === 'GET /api/relatorio') {
-        return responder(res, 200, atendimento.relatorio(Math.min(90, Math.max(1, Number(url.searchParams.get('dias')) || 7))));
+        return responder(res, 200, atendimento.relatorio(Math.min(365, Math.max(1, Number(url.searchParams.get('dias')) || 7)), url.searchParams.get('atendente') || ''));
       }
       if (rota === 'GET /api/agendadas') return responder(res, 200, atendimento.agendadas().map((a) => ({ ...a, nome: a.nome || nomes.get(a.chatId) || '' })));
       if (rota === 'POST /api/agendadas') {
