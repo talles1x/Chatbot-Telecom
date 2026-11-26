@@ -73,7 +73,8 @@ function painelDoDia() {
   return { metricas: contagem, porHora, log: linhas.filter(Boolean).slice(-200) };
 }
 
-function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat }) {
+function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, atendimento, sgp, estado, MessageMedia, enviarComoBot }) {
+  const nomes = new Map(); // chatId -> nome do contato (para a busca e a fila)
   const porta = Number(process.env.PAINEL_PORTA || 3210);
   if (/^(0|false|nao|não)$/i.test(process.env.PAINEL || '')) return null;
   const html = () => fs.readFileSync(path.join(__dirname, 'painel.html'));
@@ -102,7 +103,7 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat })
     });
   }, 1000);
   client.on('message_create', (m) => { if (!m.isStatus && !String(m.from || '').endsWith('@g.us')) emitir('mensagem', { chat: m.fromMe ? m.to : m.from }); });
-  client.on('message', (m) => { if (!m.isStatus && !String(m.from || '').endsWith('@g.us')) emitir('mensagem', { chat: m.from }); });
+  client.on('message', (m) => { if (!m.isStatus && !String(m.from || '').endsWith('@g.us')) emitir('mensagem', { chat: m.from, cliente: true, naFila: Boolean(atendimento.ticket(m.from)) }); });
 
   // ---------- Conversas ----------
   async function listarConversas() {
@@ -110,13 +111,23 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat })
     const lista = chats
       .filter((c) => !c.isGroup && !String(c.id._serialized).includes('status') && !String(c.id._serialized).endsWith('@newsletter'))
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-      .slice(0, 60);
+      .slice(0, 80);
+    // Quem está na fila aparece mesmo se a conversa for antiga
+    for (const t of atendimento.fila()) {
+      if (!lista.some((c) => c.id._serialized === t.chatId)) {
+        const c = chats.find((x) => x.id._serialized === t.chatId);
+        if (c) lista.push(c);
+      }
+    }
     return Promise.all(lista.map(async (c) => {
       const id = c.id._serialized;
       const ultima = c.lastMessage || {};
+      if (c.name) nomes.set(id, c.name);
       return {
         id,
         nome: c.name || '',
+        ticket: atendimento.ticket(id),
+        etiquetas: atendimento.etiquetasDe(id),
         numero: await Promise.resolve(numeroDeChat(id)).catch(() => ''),
         ultima: ultima.body && !['ptt', 'audio', 'sticker'].includes(ultima.type) ? String(ultima.body).slice(0, 90) : (TIPOS[ultima.type] || ''),
         deMim: Boolean(ultima.fromMe),
@@ -134,13 +145,43 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat })
       nome: chat.name || '',
       numero: await Promise.resolve(numeroDeChat(id)).catch(() => ''),
       pausado: fluxo.estaPausado(id),
-      mensagens: msgs.filter((m) => m.type !== 'e2e_notification' && m.type !== 'notification_template').map((m) => ({
+      ticket: atendimento.ticket(id),
+      etiquetas: atendimento.etiquetasDe(id),
+      notas: atendimento.notasDe(id),
+      mensagens: msgs.filter((m) => m.type !== 'e2e_notification' && m.type !== 'notification_template' && m.type !== 'revoked').map((m) => ({
+        id: m.id && m.id._serialized,
+        midia: Boolean(m.hasMedia),
+        arquivo: m._data && (m._data.filename || ''),
+        mime: m._data && (m._data.mimetype || ''),
         deMim: m.fromMe,
         corpo: m.body || '',
         tipo: m.type,
         hora: m.timestamp,
         ack: m.ack,
       })),
+    };
+  }
+
+  // ---------- Ficha do cliente no SGP ----------
+  async function ficha(id, docInformado) {
+    const lembrado = estado.cliente(id) || {};
+    const busca = String(docInformado || '').replace(/\D/g, '');
+    let contratos = [];
+    if (busca && busca.length <= 7) contratos = await sgp.consultarContrato(busca);
+    else if (busca || lembrado.doc) contratos = await sgp.consultarCliente(busca || lembrado.doc);
+    if (!contratos.length) return { encontrado: false, doc: busca || lembrado.doc || '' };
+    const escolhido = contratos.find((c) => String(c.id) === String(lembrado.contrato)) || contratos[0];
+    const [faturas, online] = await Promise.all([
+      sgp.titulosAbertos(busca.length > 7 ? busca : (lembrado.doc || ''), escolhido.id).catch(() => []),
+      sgp.verificarAcesso(escolhido.id).catch(() => null),
+    ]);
+    return {
+      encontrado: true,
+      doc: busca || lembrado.doc || '',
+      contrato: escolhido,
+      outros: contratos.filter((c) => c !== escolhido).map((c) => ({ id: c.id, status: c.status, endereco: c.endereco })),
+      faturas: faturas.slice(0, 6).map((f) => ({ vencimento: f.vencimento, valor: f.valor, link: f.link })),
+      online,
     };
   }
 
@@ -151,7 +192,7 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat })
   };
   const corpo = (req) => new Promise((ok, falha) => {
     let t = '';
-    req.on('data', (c) => { t += c; if (t.length > 1e6) req.destroy(); });
+    req.on('data', (c) => { t += c; if (t.length > 25e6) req.destroy(); }); // arquivos até ~16 MB
     req.on('end', () => { try { ok(t ? JSON.parse(t) : {}); } catch (e) { falha(e); } });
   });
 
@@ -187,25 +228,88 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat })
       }
       if (rota === 'GET /api/conversa') return responder(res, 200, await mensagensDe(url.searchParams.get('id')));
       if (rota === 'POST /api/enviar') {
-        const { id, texto } = await corpo(req);
-        if (!id || !String(texto || '').trim()) return responder(res, 400, { erro: 'faltou a conversa ou o texto' });
+        const { id, texto, arquivo } = await corpo(req);
+        if (!id || (!String(texto || '').trim() && !arquivo)) return responder(res, 400, { erro: 'faltou a conversa ou o texto' });
         // Mensagem do atendente: o bot sai de cena nessa conversa (igual responder pelo celular)
-        await client.sendMessage(id, String(texto).trim());
-        registrar(`[painel] atendente respondeu pelo painel`);
+        if (arquivo && arquivo.base64) {
+          const media = new MessageMedia(arquivo.tipo || 'application/octet-stream', arquivo.base64, arquivo.nome || 'arquivo');
+          const ehDoc = !/^image\/|^video\//.test(arquivo.tipo || '');
+          await client.sendMessage(id, media, { caption: String(texto || '').trim() || undefined, sendMediaAsDocument: ehDoc });
+        } else {
+          await client.sendMessage(id, String(texto).trim());
+        }
+        registrar('[painel] atendente respondeu pelo painel');
         return responder(res, 200, { ok: true });
       }
-      if (rota === 'POST /api/pausar') {
+      if (rota === 'POST /api/pausar' || rota === 'POST /api/assumir') {
         const { id } = await corpo(req);
         fluxo.pausar(id);
-        registrar('[painel] bot pausado numa conversa pelo painel');
+        atendimento.assumir(id, { numero: await Promise.resolve(numeroDeChat(id)).catch(() => ''), nome: nomes.get(id) || '' });
+        registrar('[painel] atendente assumiu uma conversa pelo painel');
         emitir('mensagem', { chat: id });
         return responder(res, 200, { ok: true });
       }
-      if (rota === 'POST /api/religar') {
-        const { id } = await corpo(req);
+      if (rota === 'POST /api/religar' || rota === 'POST /api/encerrar') {
+        const { id, avisar } = await corpo(req);
+        const t = atendimento.ticket(id);
+        if (avisar && t) {
+          await enviarComoBot(id, atendimento.textoEncerramento().replace(/\{protocolo\}/g, t.protocolo)).catch(() => {});
+        }
         fluxo.retomar(id);
-        registrar('[painel] bot religado numa conversa pelo painel');
+        atendimento.encerrar(id, rota.endsWith('encerrar') ? 'encerrado no painel' : 'bot religado no painel');
+        registrar(`[painel] atendimento ${t ? t.protocolo : ''} encerrado pelo painel, bot religado`);
         emitir('mensagem', { chat: id });
+        return responder(res, 200, { ok: true });
+      }
+      if (rota === 'GET /api/midia') {
+        const m = await client.getMessageById(url.searchParams.get('id'));
+        const media = m && (await m.downloadMedia().catch(() => null));
+        if (!media || !media.data) return responder(res, 404, { erro: 'mídia não disponível' });
+        res.writeHead(200, { 'Content-Type': media.mimetype || 'application/octet-stream', 'Cache-Control': 'private, max-age=86400' });
+        return res.end(Buffer.from(media.data, 'base64'));
+      }
+      if (rota === 'POST /api/etiquetas') {
+        const { id, etiquetas } = await corpo(req);
+        atendimento.etiquetar(id, etiquetas || []);
+        return responder(res, 200, { ok: true });
+      }
+      if (rota === 'POST /api/nota') {
+        const { id, texto, apagar } = await corpo(req);
+        if (apagar) atendimento.apagarNota(id, apagar);
+        else if (String(texto || '').trim()) atendimento.anotar(id, texto.trim());
+        return responder(res, 200, { notas: atendimento.notasDe(id) });
+      }
+      if (rota === 'GET /api/ficha') {
+        return responder(res, 200, await ficha(url.searchParams.get('id'), url.searchParams.get('doc')).catch((e) => ({ encontrado: false, erro: e.message })));
+      }
+      if (rota === 'GET /api/busca') {
+        const achados = atendimento.buscar(url.searchParams.get('q') || '');
+        return responder(res, 200, achados.map((a) => ({ ...a, nome: nomes.get(a.chatId) || '' })));
+      }
+      if (rota === 'GET /api/fila') {
+        return responder(res, 200, atendimento.fila().map((t) => ({ ...t, nome: t.nome || nomes.get(t.chatId) || '', etiquetas: atendimento.etiquetasDe(t.chatId) })));
+      }
+      if (rota === 'GET /api/relatorio') {
+        return responder(res, 200, atendimento.relatorio(Math.min(90, Math.max(1, Number(url.searchParams.get('dias')) || 7))));
+      }
+      if (rota === 'GET /api/agendadas') return responder(res, 200, atendimento.agendadas().map((a) => ({ ...a, nome: a.nome || nomes.get(a.chatId) || '' })));
+      if (rota === 'POST /api/agendadas') {
+        const { id, texto, quando, cancelar } = await corpo(req);
+        if (cancelar) { atendimento.cancelarAgendada(cancelar); return responder(res, 200, { ok: true }); }
+        if (!id || !String(texto || '').trim() || !(Number(quando) > Date.now())) return responder(res, 400, { erro: 'escolha a conversa, o texto e uma data no futuro' });
+        return responder(res, 200, atendimento.agendar({ chatId: id, nome: nomes.get(id) || '', texto: texto.trim(), quando }));
+      }
+      if (rota === 'GET /api/atendimento-config') {
+        return responder(res, 200, { respostas: atendimento.respostas(), etiquetas: atendimento.etiquetas(), textoEncerramento: atendimento.textoEncerramento() });
+      }
+      if (rota === 'POST /api/atendimento-config') {
+        atendimento.configurar(await corpo(req));
+        return responder(res, 200, { ok: true });
+      }
+      if (rota === 'GET /api/textos') return responder(res, 200, require('./fluxo').listarTextos());
+      if (rota === 'POST /api/textos') {
+        require('./fluxo').salvarTextos(await corpo(req));
+        registrar('[painel] textos do bot alterados pelo painel');
         return responder(res, 200, { ok: true });
       }
       if (rota === 'GET /api/config') {
