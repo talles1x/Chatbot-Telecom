@@ -30,6 +30,9 @@ const PADRAO = {
   ],
   textoEncerramento: '✅ Atendimento finalizado. Protocolo: {protocolo}. Se precisar de algo mais, é só chamar! 😊',
   agendadas: [],
+  // Quem atende no painel (nomes cadastrados no próprio painel; ficam só em dados/, nunca no GitHub)
+  atendentes: [],
+  assinar: false,
 };
 
 function criarAtendimento({ aoMudar = () => {} } = {}) {
@@ -69,16 +72,21 @@ function criarAtendimento({ aoMudar = () => {} } = {}) {
     return t;
   }
   // O atendente respondeu (celular, WhatsApp Web ou painel)
+  const nomeAtendente = (n) => String(n || '').trim().slice(0, 40);
   function respondeu(chatId, info = {}) {
-    const t = dados.tickets[chatId] || abrir(chatId, { motivo: 'atendente iniciou', ...info });
+    const { atendente, ...resto } = info;
+    const t = dados.tickets[chatId] || abrir(chatId, { motivo: 'atendente iniciou', ...resto });
     if (!t.primeiraRespostaEm) t.primeiraRespostaEm = Date.now();
+    if (nomeAtendente(atendente) && !t.atendente) t.atendente = nomeAtendente(atendente);
     if (t.status !== 'atendimento') t.status = 'atendimento';
     salvar({ tipo: 'fila', chat: chatId });
     return t;
   }
   function assumir(chatId, info = {}) {
-    const t = dados.tickets[chatId] || abrir(chatId, { motivo: 'assumido no painel', ...info });
+    const { atendente, ...resto } = info;
+    const t = dados.tickets[chatId] || abrir(chatId, { motivo: 'assumido no painel', ...resto });
     t.status = 'atendimento';
+    if (nomeAtendente(atendente)) t.atendente = nomeAtendente(atendente); // quem clicou em Assumir fica com o atendimento
     salvar({ tipo: 'fila', chat: chatId });
     return t;
   }
@@ -86,11 +94,11 @@ function criarAtendimento({ aoMudar = () => {} } = {}) {
     const t = dados.tickets[chatId];
     if (t) { t.ultimaClienteEm = Date.now(); salvar({ tipo: 'fila', chat: chatId, cliente: true }); }
   }
-  function encerrar(chatId, como = 'painel') {
+  function encerrar(chatId, como = 'painel', atendente = '') {
     const t = dados.tickets[chatId];
     if (!t) return null;
     delete dados.tickets[chatId];
-    const fim = { ...t, encerradoEm: Date.now(), como, etiquetas: [...(dados.etiquetasContato[chatId] || [])] };
+    const fim = { ...t, encerradoEm: Date.now(), como, atendente: t.atendente || nomeAtendente(atendente) || undefined, encerradoPor: nomeAtendente(atendente) || undefined, etiquetas: [...(dados.etiquetasContato[chatId] || [])] };
     dados.encerrados.push(fim);
     if (dados.encerrados.length > 20000) dados.encerrados = dados.encerrados.slice(-20000);
     salvar({ tipo: 'fila', chat: chatId });
@@ -105,8 +113,8 @@ function criarAtendimento({ aoMudar = () => {} } = {}) {
     if (!dados.etiquetasContato[chatId].length) delete dados.etiquetasContato[chatId];
     salvar({ tipo: 'contato', chat: chatId });
   }
-  function anotar(chatId, texto) {
-    const nota = { texto: String(texto).slice(0, 2000), em: Date.now() };
+  function anotar(chatId, texto, autor = '') {
+    const nota = { texto: String(texto).slice(0, 2000), em: Date.now(), ...(nomeAtendente(autor) ? { autor: nomeAtendente(autor) } : {}) };
     (dados.notas[chatId] = dados.notas[chatId] || []).push(nota);
     salvar({ tipo: 'contato', chat: chatId });
     return nota;
@@ -117,7 +125,9 @@ function criarAtendimento({ aoMudar = () => {} } = {}) {
   }
 
   // ---------- Configuração (respostas rápidas, etiquetas, texto de encerramento) ----------
-  function configurar({ respostas, etiquetas, textoEncerramento }) {
+  function configurar({ respostas, etiquetas, textoEncerramento, atendentes, assinar }) {
+    if (Array.isArray(atendentes)) dados.atendentes = [...new Set(atendentes.map(nomeAtendente).filter(Boolean))].slice(0, 30);
+    if (typeof assinar === 'boolean') dados.assinar = assinar;
     if (Array.isArray(respostas)) {
       dados.respostas = respostas
         .map((r) => ({ atalho: String(r.atalho || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30), texto: String(r.texto || '').slice(0, 2000) }))
@@ -205,6 +215,8 @@ function criarAtendimento({ aoMudar = () => {} } = {}) {
     }
     const porEtiqueta = {};
     for (const t of lista) for (const e of t.etiquetas || []) porEtiqueta[e] = (porEtiqueta[e] || 0) + 1;
+    const porAtendente = {};
+    for (const t of lista) { const a = t.atendente || 'Sem atendente definido'; porAtendente[a] = (porAtendente[a] || 0) + 1; }
     const porMotivo = {};
     for (const t of lista) { const m = t.motivo || 'outro'; porMotivo[m] = (porMotivo[m] || 0) + 1; }
     const primeiras = lista.filter((t) => t.primeiraRespostaEm).map((t) => t.primeiraRespostaEm - t.abertoEm);
@@ -216,6 +228,7 @@ function criarAtendimento({ aoMudar = () => {} } = {}) {
       mediaTotalMin: media(lista.map((t) => t.encerradoEm - t.abertoEm)),
       porDia: Object.entries(porDia).map(([dia, d]) => ({ dia, atendimentos: d.atendimentos, primeiraMin: media(d.primeira), totalMin: media(d.total) })),
       porEtiqueta: Object.entries(porEtiqueta).sort((a, b) => b[1] - a[1]).map(([nome, n]) => ({ nome, n })),
+      porAtendente: Object.entries(porAtendente).sort((a, b) => b[1] - a[1]).map(([nome, n]) => ({ nome, n })),
       porMotivo: Object.entries(porMotivo).sort((a, b) => b[1] - a[1]).map(([nome, n]) => ({ nome, n })),
       abertosAgora: Object.keys(dados.tickets).length,
     };
@@ -230,6 +243,8 @@ function criarAtendimento({ aoMudar = () => {} } = {}) {
     etiquetas: () => dados.etiquetas,
     respostas: () => dados.respostas,
     textoEncerramento: () => dados.textoEncerramento,
+    atendentes: () => dados.atendentes || [],
+    assinar: () => !!dados.assinar,
     agendadas: () => [...dados.agendadas].sort((a, b) => a.quando - b.quando),
     todasEtiquetasContato: () => dados.etiquetasContato,
   };

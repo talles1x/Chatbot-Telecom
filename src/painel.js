@@ -265,8 +265,12 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       }
       if (rota === 'GET /api/conversa') return responder(res, 200, await mensagensDe(url.searchParams.get('id')));
       if (rota === 'POST /api/enviar') {
-        const { id, texto, arquivo } = await corpo(req);
+        const pedido = await corpo(req);
+        const { id, arquivo, atendente } = pedido;
+        let { texto } = pedido;
         if (!id || (!String(texto || '').trim() && !arquivo)) return responder(res, 400, { erro: 'faltou a conversa ou o texto' });
+        // Assinatura com o nome de quem está atendendo (opção em Configurações › Atendentes)
+        if (atendente && atendimento.assinar() && String(texto || '').trim()) texto = `*${String(atendente).trim()}:*\n${String(texto).trim()}`;
         // Mensagem do atendente: o bot sai de cena nessa conversa (igual responder pelo celular)
         if (arquivo && arquivo.base64) {
           const media = new MessageMedia(arquivo.tipo || 'application/octet-stream', arquivo.base64, arquivo.nome || 'arquivo');
@@ -275,26 +279,27 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
         } else {
           await client.sendMessage(id, String(texto).trim());
         }
-        registrar('[painel] atendente respondeu pelo painel');
+        if (atendente && atendimento.ticket(id)) atendimento.respondeu(id, { atendente });
+        registrar(`[painel] ${atendente ? String(atendente).trim() : 'atendente'} respondeu pelo painel`);
         return responder(res, 200, { ok: true });
       }
       if (rota === 'POST /api/pausar' || rota === 'POST /api/assumir') {
-        const { id } = await corpo(req);
+        const { id, atendente } = await corpo(req);
         fluxo.pausar(id);
-        atendimento.assumir(id, { numero: await Promise.resolve(numeroDeChat(id)).catch(() => ''), nome: nomes.get(id) || '' });
-        registrar('[painel] atendente assumiu uma conversa pelo painel');
+        atendimento.assumir(id, { numero: await Promise.resolve(numeroDeChat(id)).catch(() => ''), nome: nomes.get(id) || '', atendente });
+        registrar(`[painel] ${atendente ? String(atendente).trim() : 'atendente'} assumiu uma conversa pelo painel`);
         emitir('mensagem', { chat: id });
         return responder(res, 200, { ok: true });
       }
       if (rota === 'POST /api/religar' || rota === 'POST /api/encerrar') {
-        const { id, avisar } = await corpo(req);
+        const { id, avisar, atendente } = await corpo(req);
         const t = atendimento.ticket(id);
         if (avisar && t) {
           await enviarComoBot(id, atendimento.textoEncerramento().replace(/\{protocolo\}/g, t.protocolo)).catch(() => {});
         }
         fluxo.retomar(id);
-        atendimento.encerrar(id, rota.endsWith('encerrar') ? 'encerrado no painel' : 'bot religado no painel');
-        registrar(`[painel] atendimento ${t ? t.protocolo : ''} encerrado pelo painel, bot religado`);
+        atendimento.encerrar(id, rota.endsWith('encerrar') ? 'encerrado no painel' : 'bot religado no painel', atendente);
+        registrar(`[painel] atendimento ${t ? t.protocolo : ''} encerrado pelo painel${atendente ? ` por ${String(atendente).trim()}` : ''}, bot religado`);
         emitir('mensagem', { chat: id });
         return responder(res, 200, { ok: true });
       }
@@ -317,9 +322,9 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
         return responder(res, 200, { ok: true });
       }
       if (rota === 'POST /api/nota') {
-        const { id, texto, apagar } = await corpo(req);
+        const { id, texto, apagar, atendente } = await corpo(req);
         if (apagar) atendimento.apagarNota(id, apagar);
-        else if (String(texto || '').trim()) atendimento.anotar(id, texto.trim());
+        else if (String(texto || '').trim()) atendimento.anotar(id, texto.trim(), atendente);
         return responder(res, 200, { notas: atendimento.notasDe(id) });
       }
       if (rota === 'GET /api/ficha') {
@@ -343,7 +348,7 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
         return responder(res, 200, atendimento.agendar({ chatId: id, nome: nomes.get(id) || '', texto: texto.trim(), quando }));
       }
       if (rota === 'GET /api/atendimento-config') {
-        return responder(res, 200, { respostas: atendimento.respostas(), etiquetas: atendimento.etiquetas(), textoEncerramento: atendimento.textoEncerramento() });
+        return responder(res, 200, { respostas: atendimento.respostas(), etiquetas: atendimento.etiquetas(), textoEncerramento: atendimento.textoEncerramento(), atendentes: atendimento.atendentes(), assinar: atendimento.assinar() });
       }
       if (rota === 'POST /api/atendimento-config') {
         atendimento.configurar(await corpo(req));
