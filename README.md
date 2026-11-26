@@ -47,6 +47,17 @@ Os números em `TECNICO_NUMEROS` recebem outro menu, com o técnico cumprimentad
 
 Em qualquer passo, *0* volta ao menu.
 
+## Painel no navegador
+
+Com o bot ligado, abra `painel.bat` (ou acesse `http://localhost:3210` no computador do bot). O painel usa a mesma conexão do WhatsApp e só abre no próprio computador:
+
+- **Conversas**: lista as conversas mais recentes, mostra as mensagens e deixa responder. Responder pelo painel tira o bot da conversa, igual responder pelo celular. Dá para assumir (pausar o bot) ou religar o bot em cada conversa.
+- **Painel do dia**: conversas novas, boletos enviados, liberações, chamados, passadas para atendente, ocorrências de técnicos, fechamentos de caixa e áudios, com gráfico por hora e o log ao vivo.
+- **Configurações**: edita número da equipe, técnicos, administradores, caixas e horário (o `.env` anterior fica em `.env.bak`) e reinicia o bot.
+- **WhatsApp**: mostra se está conectado e o QR code quando precisar conectar de novo.
+
+`PAINEL=false` desliga o painel e `PAINEL_PORTA` troca a porta.
+
 ## Como o atendente usa
 
 - Quando o cliente pede atendente (ou manda foto ou comprovante), o bot avisa o cliente, deixa a conversa como **não lida** e fica em silêncio nessa conversa por 3h (`PAUSA_HUMANO_HORAS`).
