@@ -7,120 +7,199 @@
 <style>
   :root {
     --fundo: #f3f4f1; --painel: #ffffff; --linha: #e3e5df; --texto: #1c2321; --suave: #66706b;
-    --verde: #128c5e; --verde-claro: #e3f3ea; --balao-mim: #dcf5e4; --balao: #ffffff;
-    --alerta: #b54708; --alerta-claro: #fdf0e3; --erro: #b42318; --azul: #1f5fae;
+    --verde: #128c5e; --verde-claro: #e3f3ea; --balao-mim: #dcf5e4; --balao: #ffffff; --nota: #fff6d6; --nota-borda: #ecd98b;
+    --alerta: #b54708; --alerta-claro: #fdf0e3; --erro: #b42318; --erro-claro: #fdecea; --azul: #1f5fae; --azul-claro: #e6effa;
     --raio: 10px; --sombra: 0 1px 2px rgba(20, 30, 25, .06), 0 2px 8px rgba(20, 30, 25, .05);
+    --c-green: #1a7f4b; --c-blue: #1f5fae; --c-purple: #6941c6; --c-teal: #0e7490; --c-red: #b42318; --c-orange: #b54708; --c-gray: #5b6475; --c-pink: #c11574;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --fundo: #111614; --painel: #1a201e; --linha: #2a322f; --texto: #e6ebe8; --suave: #93a19a;
-      --verde: #3fbf8a; --verde-claro: #16332a; --balao-mim: #1d3b30; --balao: #222a27;
-      --alerta: #f0a35c; --alerta-claro: #3a2a1a; --erro: #f97066; --azul: #7aa7e6;
+      --verde: #3fbf8a; --verde-claro: #16332a; --balao-mim: #1d3b30; --balao: #222a27; --nota: #3a3318; --nota-borda: #6b5c22;
+      --alerta: #f0a35c; --alerta-claro: #3a2a1a; --erro: #f97066; --erro-claro: #3b1d1a; --azul: #7aa7e6; --azul-claro: #1a2a3f;
+      --c-green: #4cc38a; --c-blue: #7aa7e6; --c-purple: #a98bfa; --c-teal: #4fc3d9; --c-red: #f97066; --c-orange: #f0a35c; --c-gray: #a3acbb; --c-pink: #f07ab8;
     }
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body { font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; background: var(--fundo); color: var(--texto); display: flex; flex-direction: column; }
-  button, input, textarea { font: inherit; color: inherit; }
-  header { display: flex; align-items: center; gap: 16px; padding: 0 20px; height: 56px; background: var(--painel); border-bottom: 1px solid var(--linha); flex: none; }
-  header h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
-  nav { display: flex; gap: 4px; margin-left: 12px; }
-  nav button { border: 0; background: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; color: var(--suave); font-weight: 550; }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  a { color: var(--azul); }
+  header { display: flex; align-items: center; gap: 14px; padding: 0 18px; height: 54px; background: var(--painel); border-bottom: 1px solid var(--linha); flex: none; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 650; white-space: nowrap; }
+  nav { display: flex; gap: 2px; margin-left: 8px; }
+  nav button { border: 0; background: none; padding: 7px 12px; border-radius: 8px; cursor: pointer; color: var(--suave); font-weight: 550; position: relative; }
   nav button:hover { background: var(--fundo); color: var(--texto); }
   nav button.ativo { background: var(--verde-claro); color: var(--verde); }
-  .status { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--suave); }
-  .bolinha { width: 9px; height: 9px; border-radius: 50%; background: var(--suave); }
+  nav .contador { position: absolute; top: -2px; right: -6px; background: var(--alerta); color: #fff; font-size: 10px; font-weight: 700; border-radius: 99px; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 4px; }
+  .status { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--suave); white-space: nowrap; }
+  .sino { border: 1px solid var(--linha); background: var(--painel); border-radius: 8px; padding: 4px 9px; cursor: pointer; }
+  .bolinha { width: 9px; height: 9px; border-radius: 50%; background: var(--suave); flex: none; }
   .bolinha.conectado { background: var(--verde); box-shadow: 0 0 0 3px var(--verde-claro); }
   .bolinha.qr, .bolinha.sincronizando, .bolinha.iniciando { background: var(--alerta); }
   .bolinha.desconectado { background: var(--erro); }
   main { flex: 1; min-height: 0; display: flex; }
   .aba { display: none; flex: 1; min-height: 0; }
   .aba.ativa { display: flex; }
-
-  /* Conversas */
-  .lista { width: 340px; flex: none; background: var(--painel); border-right: 1px solid var(--linha); display: flex; flex-direction: column; min-height: 0; }
-  .lista .busca { padding: 12px; border-bottom: 1px solid var(--linha); }
-  .lista input { width: 100%; padding: 9px 12px; border: 1px solid var(--linha); border-radius: 8px; background: var(--fundo); outline: none; }
-  .lista input:focus { border-color: var(--verde); }
-  .itens { overflow-y: auto; flex: 1; }
-  .item { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 11px 14px; border-bottom: 1px solid var(--linha); cursor: pointer; }
-  .item:hover { background: var(--fundo); }
-  .item.ativo { background: var(--verde-claro); }
-  .item .nome { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .item .hora { font-size: 12px; color: var(--suave); }
-  .item .ultima { color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
-  .item .marcas { display: flex; gap: 4px; align-items: center; }
-  .etiqueta { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px; background: var(--alerta-claro); color: var(--alerta); white-space: nowrap; }
-  .etiqueta.bot { background: var(--verde-claro); color: var(--verde); }
-  .naolidas { background: var(--verde); color: #fff; font-size: 11px; font-weight: 700; min-width: 19px; height: 19px; border-radius: 99px; display: inline-grid; place-items: center; padding: 0 5px; }
-  .conversa { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-  .topo-conversa { display: flex; align-items: center; gap: 12px; padding: 12px 18px; background: var(--painel); border-bottom: 1px solid var(--linha); min-height: 60px; }
-  .topo-conversa .quem { min-width: 0; }
-  .topo-conversa .quem b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .topo-conversa .quem span { font-size: 12px; color: var(--suave); }
-  .topo-conversa .acoes { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-  .botao { border: 1px solid var(--linha); background: var(--painel); padding: 7px 13px; border-radius: 8px; cursor: pointer; font-weight: 550; white-space: nowrap; }
+  .botao { border: 1px solid var(--linha); background: var(--painel); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: 550; white-space: nowrap; }
   .botao:hover { border-color: var(--suave); }
   .botao.principal { background: var(--verde); border-color: var(--verde); color: #fff; }
   .botao.principal:hover { filter: brightness(1.07); }
+  .botao.perigo { color: var(--erro); }
+  .botao.peq { padding: 3px 9px; font-size: 13px; }
   .botao:disabled { opacity: .5; cursor: default; }
-  .mensagens { flex: 1; overflow-y: auto; padding: 18px 8%; display: flex; flex-direction: column; gap: 6px; }
-  .balao { max-width: 70%; padding: 7px 11px 5px; border-radius: 9px; background: var(--balao); box-shadow: var(--sombra); white-space: pre-wrap; word-wrap: break-word; align-self: flex-start; }
+  input.campo, textarea.campo, select.campo { width: 100%; padding: 7px 10px; border: 1px solid var(--linha); border-radius: 8px; background: var(--fundo); outline: none; }
+  input.campo:focus, textarea.campo:focus, select.campo:focus { border-color: var(--verde); }
+  .msg { font-size: 13px; color: var(--suave); }
+  .msg.ok { color: var(--verde); } .msg.erro { color: var(--erro); }
+  .etq { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 650; padding: 1px 8px; border-radius: 99px; white-space: nowrap; border: 1px solid currentColor; background: transparent; }
+  .etq.green { color: var(--c-green); } .etq.blue { color: var(--c-blue); } .etq.purple { color: var(--c-purple); } .etq.teal { color: var(--c-teal); }
+  .etq.red { color: var(--c-red); } .etq.orange { color: var(--c-orange); } .etq.gray { color: var(--c-gray); } .etq.pink { color: var(--c-pink); }
+  .situacao { font-size: 11px; font-weight: 650; padding: 1px 8px; border-radius: 99px; white-space: nowrap; }
+  .situacao.aguardando { background: var(--alerta-claro); color: var(--alerta); }
+  .situacao.atendimento { background: var(--azul-claro); color: var(--azul); }
+  .situacao.bot { background: var(--verde-claro); color: var(--verde); }
+
+  /* ---------- Conversas ---------- */
+  .lista { width: 330px; flex: none; background: var(--painel); border-right: 1px solid var(--linha); display: flex; flex-direction: column; min-height: 0; }
+  .lista .topo { padding: 10px 12px; border-bottom: 1px solid var(--linha); display: grid; gap: 8px; }
+  .filtros { display: flex; gap: 4px; flex-wrap: wrap; }
+  .filtros button { border: 1px solid var(--linha); background: none; padding: 3px 10px; border-radius: 99px; cursor: pointer; font-size: 12px; color: var(--suave); }
+  .filtros button.ativo { background: var(--verde); border-color: var(--verde); color: #fff; }
+  .itens { overflow-y: auto; flex: 1; }
+  .item { padding: 10px 14px; border-bottom: 1px solid var(--linha); cursor: pointer; display: grid; gap: 3px; }
+  .item:hover { background: var(--fundo); }
+  .item.ativo { background: var(--verde-claro); }
+  .item .l1 { display: flex; gap: 8px; align-items: baseline; }
+  .item .nome { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .item .hora { font-size: 12px; color: var(--suave); }
+  .item .l2 { display: flex; gap: 6px; align-items: center; }
+  .item .ultima { color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; flex: 1; }
+  .item .l3 { display: flex; gap: 4px; flex-wrap: wrap; }
+  .naolidas { background: var(--verde); color: #fff; font-size: 11px; font-weight: 700; min-width: 19px; height: 19px; border-radius: 99px; display: inline-grid; place-items: center; padding: 0 5px; }
+  .busca-res { padding: 10px 14px; border-bottom: 1px solid var(--linha); cursor: pointer; font-size: 13px; }
+  .busca-res:hover { background: var(--fundo); }
+  .busca-res b { display: block; font-size: 13px; }
+  .busca-res mark { background: var(--nota); color: inherit; border-radius: 3px; }
+
+  .conversa { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topo-conversa { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--painel); border-bottom: 1px solid var(--linha); min-height: 58px; }
+  .topo-conversa .quem { min-width: 0; flex: 1; }
+  .topo-conversa .quem b { display: flex; gap: 8px; align-items: center; white-space: nowrap; overflow: hidden; }
+  .topo-conversa .quem span { font-size: 12px; color: var(--suave); }
+  .topo-conversa .acoes { display: flex; gap: 6px; align-items: center; position: relative; }
+  .menu-encerrar { position: absolute; top: 38px; right: 0; background: var(--painel); border: 1px solid var(--linha); border-radius: 8px; box-shadow: var(--sombra); z-index: 5; display: none; min-width: 240px; }
+  .menu-encerrar.aberto { display: block; }
+  .menu-encerrar button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 9px 12px; cursor: pointer; }
+  .menu-encerrar button:hover { background: var(--fundo); }
+  .menu-encerrar small { display: block; color: var(--suave); }
+  .mensagens { flex: 1; overflow-y: auto; padding: 16px 6%; display: flex; flex-direction: column; gap: 6px; }
+  .balao { max-width: 72%; padding: 7px 11px 5px; border-radius: 9px; background: var(--balao); box-shadow: var(--sombra); white-space: pre-wrap; word-wrap: break-word; align-self: flex-start; }
   .balao.mim { background: var(--balao-mim); align-self: flex-end; }
   .balao .meta { display: block; text-align: right; font-size: 11px; color: var(--suave); margin-top: 2px; }
+  .balao img.foto { display: block; max-width: 280px; max-height: 300px; border-radius: 6px; margin-bottom: 4px; cursor: zoom-in; background: var(--fundo); }
+  .balao audio { display: block; width: 260px; margin-bottom: 2px; }
+  .balao .doc { display: flex; gap: 8px; align-items: center; padding: 6px 8px; background: var(--fundo); border-radius: 6px; margin-bottom: 4px; text-decoration: none; color: inherit; }
   .balao .midia { color: var(--suave); font-style: italic; }
   .dia-sep { align-self: center; font-size: 12px; color: var(--suave); background: var(--painel); padding: 3px 10px; border-radius: 6px; margin: 8px 0; box-shadow: var(--sombra); }
-  .escrever { display: flex; gap: 10px; padding: 12px 18px; background: var(--painel); border-top: 1px solid var(--linha); }
-  .escrever textarea { flex: 1; resize: none; border: 1px solid var(--linha); border-radius: 8px; padding: 9px 12px; background: var(--fundo); min-height: 40px; max-height: 140px; outline: none; }
+  .rapidas { display: flex; gap: 6px; padding: 8px 16px 0; background: var(--painel); border-top: 1px solid var(--linha); overflow-x: auto; }
+  .rapidas button { border: 1px solid var(--linha); background: var(--fundo); padding: 3px 10px; border-radius: 99px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+  .rapidas button:hover { border-color: var(--verde); color: var(--verde); }
+  .escrever { display: flex; gap: 8px; padding: 8px 16px 10px; background: var(--painel); align-items: flex-end; position: relative; }
+  .escrever textarea { flex: 1; resize: none; border: 1px solid var(--linha); border-radius: 8px; padding: 8px 11px; background: var(--fundo); min-height: 38px; max-height: 140px; outline: none; }
   .escrever textarea:focus { border-color: var(--verde); }
-  .aviso-envio { font-size: 12px; color: var(--suave); padding: 0 18px 10px; background: var(--painel); }
-  .vazio { margin: auto; text-align: center; color: var(--suave); max-width: 320px; }
+  .icone { border: 1px solid var(--linha); background: var(--painel); width: 38px; height: 38px; border-radius: 8px; cursor: pointer; font-size: 16px; flex: none; }
+  .icone:hover { border-color: var(--suave); }
+  .sugestoes { position: absolute; bottom: 52px; left: 16px; right: 16px; background: var(--painel); border: 1px solid var(--linha); border-radius: 8px; box-shadow: var(--sombra); max-height: 220px; overflow-y: auto; display: none; z-index: 5; }
+  .sugestoes div { padding: 7px 12px; cursor: pointer; font-size: 13px; }
+  .sugestoes div.sel, .sugestoes div:hover { background: var(--verde-claro); }
+  .sugestoes b { color: var(--verde); }
+  .anexo { padding: 6px 16px 0; background: var(--painel); font-size: 13px; color: var(--suave); display: none; }
+  .agendar { padding: 8px 16px; background: var(--painel); display: none; gap: 8px; align-items: center; flex-wrap: wrap; border-top: 1px dashed var(--linha); }
+  .aviso-envio { font-size: 12px; color: var(--suave); padding: 0 16px 8px; background: var(--painel); }
+  .vazio { margin: auto; text-align: center; color: var(--suave); max-width: 340px; padding: 20px; }
   .vazio b { display: block; color: var(--texto); font-size: 15px; margin-bottom: 4px; }
 
-  /* Páginas com rolagem */
-  .pagina { flex: 1; overflow-y: auto; padding: 24px; }
-  .conteudo { max-width: 1080px; margin: 0 auto; }
-  .pagina h2 { font-size: 18px; margin: 0 0 4px; letter-spacing: -.01em; }
-  .sub { color: var(--suave); margin: 0 0 20px; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px; }
-  .card { background: var(--painel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 14px 16px; }
+  .lado { width: 310px; flex: none; background: var(--painel); border-left: 1px solid var(--linha); overflow-y: auto; }
+  .lado section { padding: 14px 16px; border-bottom: 1px solid var(--linha); }
+  .lado h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); }
+  .lado .linha { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 2px 0; }
+  .lado .linha span:first-child { color: var(--suave); }
+  .lado .linha span:last-child { text-align: right; }
+  .fatura { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px dashed var(--linha); }
+  .etqs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .etqs button { cursor: pointer; opacity: .45; }
+  .etqs button.on { opacity: 1; background: currentColor; }
+  .etqs button.on span { color: #fff; }
+  @media (prefers-color-scheme: dark) { .etqs button.on span { color: #111; } }
+  .nota { background: var(--nota); border: 1px solid var(--nota-borda); border-radius: 8px; padding: 7px 10px; font-size: 13px; margin-bottom: 6px; white-space: pre-wrap; position: relative; }
+  .nota small { display: block; color: var(--suave); font-size: 11px; margin-top: 2px; }
+  .nota button { position: absolute; top: 3px; right: 5px; border: 0; background: none; cursor: pointer; color: var(--suave); }
+
+  /* ---------- Páginas ---------- */
+  .pagina { flex: 1; overflow-y: auto; padding: 22px; }
+  .conteudo { max-width: 1100px; margin: 0 auto; }
+  .pagina h2 { font-size: 18px; margin: 0 0 4px; }
+  .pagina h3 { font-size: 14px; margin: 0 0 12px; }
+  .sub { color: var(--suave); margin: 0 0 18px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .card { background: var(--painel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 13px 15px; }
   .card .rot { font-size: 12px; color: var(--suave); }
-  .card .num { font-size: 26px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .bloco { background: var(--painel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 16px; margin-bottom: 20px; }
-  .bloco h3 { font-size: 14px; margin: 0 0 12px; }
+  .card .num { font-size: 25px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .card .num small { font-size: 13px; color: var(--suave); font-weight: 500; }
+  .bloco { background: var(--painel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 16px; margin-bottom: 18px; }
+  .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   .grafico { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
-  .grafico .barra { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
-  .grafico .barra i { display: block; width: 100%; max-width: 26px; background: var(--verde); border-radius: 4px 4px 0 0; min-height: 2px; opacity: .85; }
-  .grafico .barra span { font-size: 10px; color: var(--suave); }
-  .log { font: 12px/1.55 ui-monospace, Consolas, monospace; background: var(--fundo); border-radius: 8px; padding: 10px 12px; height: 320px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
-  .log .l-bot { color: var(--verde); }
-  .log .l-tec { color: var(--azul); }
-  .log .l-err { color: var(--erro); }
+  .grafico .barra { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; min-width: 0; }
+  .grafico .barra i { display: block; width: 100%; max-width: 28px; background: var(--verde); border-radius: 4px 4px 0 0; min-height: 2px; opacity: .85; }
+  .grafico .barra span { font-size: 10px; color: var(--suave); white-space: nowrap; }
+  .tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tabela th { text-align: left; color: var(--suave); font-weight: 600; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--linha); }
+  .tabela td { padding: 8px; border-bottom: 1px solid var(--linha); vertical-align: middle; }
+  .tabela tr.clicavel { cursor: pointer; } .tabela tr.clicavel:hover td { background: var(--fundo); }
+  .espera { font-weight: 650; font-variant-numeric: tabular-nums; }
+  .espera.atrasado { color: var(--erro); }
+  .log { font: 12px/1.55 ui-monospace, Consolas, monospace; background: var(--fundo); border-radius: 8px; padding: 10px 12px; height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+  .log .l-bot { color: var(--verde); } .log .l-tec { color: var(--azul); } .log .l-err { color: var(--erro); }
+  .seletor { display: flex; gap: 4px; margin-bottom: 14px; }
+  .seletor button { border: 1px solid var(--linha); background: var(--painel); padding: 4px 12px; border-radius: 8px; cursor: pointer; }
+  .seletor button.ativo { background: var(--verde); border-color: var(--verde); color: #fff; }
+  .lista-barras div { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 6px 0; }
+  .lista-barras span:first-child { width: 120px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lista-barras i { display: block; height: 10px; background: var(--verde); border-radius: 3px; opacity: .8; }
 
   /* Configurações */
-  .campo { display: grid; grid-template-columns: 280px 1fr; gap: 6px 20px; padding: 14px 0; border-bottom: 1px solid var(--linha); }
-  .campo:last-of-type { border-bottom: 0; }
-  .campo label { font-weight: 600; }
-  .campo small { color: var(--suave); display: block; font-weight: 400; margin-top: 2px; }
-  .campo input, .campo textarea { width: 100%; padding: 8px 11px; border: 1px solid var(--linha); border-radius: 8px; background: var(--fundo); outline: none; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
-  .campo textarea { min-height: 84px; resize: vertical; }
-  .campo input:focus, .campo textarea:focus { border-color: var(--verde); }
-  .barra-acoes { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
-  .msg { font-size: 13px; color: var(--suave); }
-  .msg.ok { color: var(--verde); }
-  .msg.erro { color: var(--erro); }
+  .subnav { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+  .subnav button { border: 1px solid var(--linha); background: var(--painel); padding: 6px 13px; border-radius: 8px; cursor: pointer; font-weight: 550; }
+  .subnav button.ativo { background: var(--verde-claro); border-color: var(--verde); color: var(--verde); }
+  .secao { display: none; } .secao.ativa { display: block; }
+  .campo-env { display: grid; grid-template-columns: 270px 1fr; gap: 6px 18px; padding: 13px 0; border-bottom: 1px solid var(--linha); }
+  .campo-env:last-child { border-bottom: 0; }
+  .campo-env label { font-weight: 600; }
+  .campo-env small { color: var(--suave); display: block; font-weight: 400; margin-top: 2px; }
+  .campo-env .campo { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  .campo-env textarea.campo { min-height: 80px; resize: vertical; }
+  .linha-edit { display: grid; grid-template-columns: 150px 1fr auto; gap: 8px; align-items: start; margin-bottom: 8px; }
+  .linha-edit.etq-edit { grid-template-columns: 1fr 140px auto; }
+  .linha-edit textarea { min-height: 38px; resize: vertical; }
+  .texto-bot { padding: 12px 0; border-bottom: 1px solid var(--linha); }
+  .texto-bot label { font-weight: 600; display: block; margin-bottom: 6px; }
+  .texto-bot textarea { min-height: 64px; resize: vertical; }
+  .barra-acoes { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
 
-  /* WhatsApp */
   .zap { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
   .qr { width: 300px; height: 300px; background: #fff; border-radius: var(--raio); display: grid; place-items: center; border: 1px solid var(--linha); }
   .qr img { width: 280px; height: 280px; }
   .passos { margin: 0; padding-left: 20px; line-height: 1.9; }
   .grande { font-size: 20px; font-weight: 650; display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .zoom { position: fixed; inset: 0; background: rgba(0,0,0,.8); display: none; place-items: center; z-index: 20; cursor: zoom-out; }
+  .zoom img { max-width: 92vw; max-height: 92vh; border-radius: 8px; }
 
+  @media (max-width: 1150px) { .lado { display: none; } .lado.mostrar { display: block; position: fixed; right: 0; top: 54px; bottom: 0; z-index: 8; box-shadow: var(--sombra); } }
   @media (max-width: 760px) {
-    header { padding: 0 12px; gap: 8px; } header h1 { display: none; } nav { margin-left: 0; } nav button { padding: 8px 9px; }
+    header { padding: 0 10px; gap: 6px; } header h1, .status #status-txt { display: none; } nav { margin-left: 0; overflow-x: auto; } nav button { padding: 7px 8px; }
     .lista { width: 100%; } .conversa { display: none; } .tem-conversa .lista { display: none; } .tem-conversa .conversa { display: flex; }
-    .campo { grid-template-columns: 1fr; } .mensagens { padding: 14px; }
+    .campo-env, .duas, .linha-edit { grid-template-columns: 1fr; } .mensagens { padding: 12px; }
   }
 </style>
 </head>
@@ -129,51 +208,117 @@
   <h1>Painel do bot</h1>
   <nav>
     <button data-aba="conversas" class="ativo">Conversas</button>
-    <button data-aba="dia">Painel do dia</button>
+    <button data-aba="fila">Atendimentos <span class="contador" id="cont-fila" hidden></span></button>
+    <button data-aba="relatorios">Relatórios</button>
     <button data-aba="config">Configurações</button>
     <button data-aba="zap">WhatsApp</button>
   </nav>
-  <div class="status"><span class="bolinha" id="bolinha"></span><span id="status-txt">Conectando…</span></div>
+  <div class="status">
+    <button class="sino" id="sino" title="Avisos de nova mensagem">🔕</button>
+    <span class="bolinha" id="bolinha"></span><span id="status-txt">Conectando…</span>
+  </div>
 </header>
 
 <main>
-  <!-- Conversas -->
+  <!-- ================= Conversas ================= -->
   <section class="aba ativa" id="aba-conversas">
     <div class="lista">
-      <div class="busca"><input id="busca" placeholder="Buscar nome ou número" autocomplete="off"></div>
+      <div class="topo">
+        <input class="campo" id="busca" placeholder="Buscar nome, número ou palavra nas mensagens" autocomplete="off">
+        <div class="filtros" id="filtros"></div>
+      </div>
       <div class="itens" id="itens"></div>
     </div>
     <div class="conversa" id="conversa">
-      <div class="vazio"><b>Escolha uma conversa</b>As conversas do WhatsApp do bot aparecem à esquerda, das mais recentes para as mais antigas.</div>
+      <div class="vazio"><b>Escolha uma conversa</b>As conversas do WhatsApp do bot aparecem à esquerda. Quem pediu atendente aparece em <b style="display:inline;font-size:inherit;color:var(--alerta)">Aguardando</b>.</div>
     </div>
+    <aside class="lado" id="lado"></aside>
   </section>
 
-  <!-- Painel do dia -->
-  <section class="aba" id="aba-dia">
+  <!-- ================= Atendimentos (supervisor) ================= -->
+  <section class="aba" id="aba-fila">
+    <div class="pagina"><div class="conteudo">
+      <h2>Atendimentos agora</h2>
+      <p class="sub">Quem está esperando um atendente e quem já está sendo atendido. Clique para abrir a conversa.</p>
+      <div class="cards" id="fila-cards"></div>
+      <div class="bloco"><h3>Aguardando atendente</h3><div id="fila-aguardando"></div></div>
+      <div class="bloco"><h3>Em atendimento</h3><div id="fila-atendimento"></div></div>
+      <div class="bloco"><h3>Mensagens agendadas</h3><div id="agendadas"></div></div>
+    </div></div>
+  </section>
+
+  <!-- ================= Relatórios ================= -->
+  <section class="aba" id="aba-relatorios">
     <div class="pagina"><div class="conteudo">
       <h2>Hoje</h2>
       <p class="sub" id="dia-sub">Contado no log de hoje do bot.</p>
       <div class="cards" id="cards"></div>
-      <div class="bloco"><h3>Conversas novas por hora</h3><div class="grafico" id="grafico"></div></div>
+      <div class="bloco"><h3>Conversas novas por hora (hoje)</h3><div class="grafico" id="grafico"></div></div>
+      <h2 style="margin-top:8px">Atendimentos humanos</h2>
+      <p class="sub">Atendimentos que passaram pela fila (do momento em que o cliente entrou na fila até encerrar).</p>
+      <div class="seletor" id="periodo">
+        <button data-dias="1">Hoje</button><button data-dias="7" class="ativo">7 dias</button><button data-dias="30">30 dias</button><button data-dias="90">90 dias</button>
+      </div>
+      <div class="cards" id="rel-cards"></div>
+      <div class="bloco"><h3>Atendimentos por dia</h3><div class="grafico" id="rel-grafico"></div></div>
+      <div class="duas">
+        <div class="bloco"><h3>Por etiqueta</h3><div class="lista-barras" id="rel-etiquetas"></div></div>
+        <div class="bloco"><h3>Como começaram</h3><div class="lista-barras" id="rel-motivos"></div></div>
+      </div>
       <div class="bloco"><h3>Log ao vivo</h3><div class="log" id="log"></div></div>
     </div></div>
   </section>
 
-  <!-- Configurações -->
+  <!-- ================= Configurações ================= -->
   <section class="aba" id="aba-config">
     <div class="pagina"><div class="conteudo">
       <h2>Configurações</h2>
-      <p class="sub">Ficam no arquivo <code>.env</code> do bot (o anterior é guardado em <code>.env.bak</code>). Valem depois de reiniciar o bot.</p>
-      <div class="bloco" id="campos"></div>
-      <div class="barra-acoes">
-        <button class="botao principal" id="salvar">Salvar</button>
-        <button class="botao" id="reiniciar">Reiniciar o bot</button>
-        <span class="msg" id="config-msg"></span>
+      <p class="sub">Respostas rápidas, etiquetas e textos valem na hora. As configurações do bot valem depois de reiniciar.</p>
+      <div class="subnav" id="subnav">
+        <button data-sec="respostas" class="ativo">Respostas rápidas</button>
+        <button data-sec="etiquetas">Etiquetas e encerramento</button>
+        <button data-sec="textos">Textos do bot</button>
+        <button data-sec="bot">Configurações do bot</button>
+      </div>
+      <div class="secao ativa" id="sec-respostas">
+        <div class="bloco">
+          <p class="sub" style="margin-bottom:12px">Aparecem em botões em cima da caixa de texto. Também dá para digitar <b>/</b> e o atalho (ex.: <b>/pix</b>).</p>
+          <div id="lista-respostas"></div>
+          <div class="barra-acoes"><button class="botao" id="add-resposta">+ Nova resposta</button><button class="botao principal" id="salvar-respostas">Salvar</button><span class="msg" id="msg-respostas"></span></div>
+        </div>
+      </div>
+      <div class="secao" id="sec-etiquetas">
+        <div class="bloco">
+          <h3>Etiquetas</h3>
+          <div id="lista-etiquetas"></div>
+          <div class="barra-acoes"><button class="botao" id="add-etiqueta">+ Nova etiqueta</button></div>
+        </div>
+        <div class="bloco">
+          <h3>Mensagem ao encerrar o atendimento</h3>
+          <p class="sub" style="margin-bottom:8px">Enviada quando você clica em "Encerrar e avisar o cliente". <b>{protocolo}</b> vira o número do protocolo.</p>
+          <textarea class="campo" id="texto-encerramento" rows="3"></textarea>
+        </div>
+        <div class="barra-acoes"><button class="botao principal" id="salvar-etiquetas">Salvar</button><span class="msg" id="msg-etiquetas"></span></div>
+      </div>
+      <div class="secao" id="sec-textos">
+        <div class="bloco">
+          <p class="sub" style="margin-bottom:4px">Deixe em branco para usar o texto padrão. <b>{empresa}</b> vira o nome da empresa e <b>{horario}</b> o horário de atendimento.</p>
+          <div id="lista-textos"></div>
+          <div class="barra-acoes"><button class="botao principal" id="salvar-textos">Salvar</button><span class="msg" id="msg-textos"></span></div>
+        </div>
+      </div>
+      <div class="secao" id="sec-bot">
+        <div class="bloco" id="campos-env"></div>
+        <div class="barra-acoes">
+          <button class="botao principal" id="salvar-env">Salvar</button>
+          <button class="botao" id="reiniciar">Reiniciar o bot</button>
+          <span class="msg" id="msg-env"></span>
+        </div>
       </div>
     </div></div>
   </section>
 
-  <!-- WhatsApp -->
+  <!-- ================= WhatsApp ================= -->
   <section class="aba" id="aba-zap">
     <div class="pagina"><div class="conteudo">
       <h2>Conexão com o WhatsApp</h2>
@@ -193,9 +338,11 @@
     </div></div>
   </section>
 </main>
+<div class="zoom" id="zoom"><img alt=""></div>
 
 <script>
-const $ = (s) => document.querySelector(s);
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const api = async (rota, dados) => {
   const op = dados ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Painel': '1' }, body: JSON.stringify(dados) } : {};
@@ -213,19 +360,38 @@ const fone = (n) => {
 const hora = (ts) => {
   if (!ts) return '';
   const d = new Date(ts * 1000);
-  const hoje = new Date().toDateString() === d.toDateString();
-  return hoje ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  return new Date().toDateString() === d.toDateString() ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 };
+const duracao = (ms) => {
+  const m = Math.max(0, Math.round(ms / 60000));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h}h${String(m % 60).padStart(2, '0')}` : `${Math.floor(h / 24)}d ${h % 24}h`;
+};
+const minTxt = (m) => (m === null || m === undefined ? '–' : duracao(m * 60000));
+const dinheiro = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const dataBR = (d) => { const m = String(d || '').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d || ''); };
 const TIPOS = { image: '📷 Foto', audio: '🎤 Áudio', ptt: '🎤 Áudio', video: '🎬 Vídeo', document: '📄 Documento', sticker: '🙂 Figurinha', location: '📍 Localização', vcard: '👤 Contato', poll_creation: '📊 Enquete' };
+const NOME_SIT = { aguardando: 'Aguardando', atendimento: 'Em atendimento' };
+
+// ---------- Estado da página ----------
+let conversas = [];
+let aberta = null;
+let abaAtual = 'conversas';
+let filtro = 'todas';
+let config = { respostas: [], etiquetas: [], textoEncerramento: '' };
+let anexo = null;
+const corEtq = (nome) => (config.etiquetas.find((e) => e.nome === nome) || {}).cor || 'gray';
+const etqHtml = (nome) => `<span class="etq ${corEtq(nome)}">${esc(nome)}</span>`;
 
 // ---------- Abas ----------
-let abaAtual = 'conversas';
-document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => abrirAba(b.dataset.aba)));
+$$('nav button').forEach((b) => b.addEventListener('click', () => abrirAba(b.dataset.aba)));
 function abrirAba(nome) {
   abaAtual = nome;
-  document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === nome));
-  document.querySelectorAll('.aba').forEach((a) => a.classList.toggle('ativa', a.id === `aba-${nome}`));
-  if (nome === 'dia') carregarDia();
+  $$('nav button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === nome));
+  $$('.aba').forEach((a) => a.classList.toggle('ativa', a.id === `aba-${nome}`));
+  if (nome === 'fila') carregarFila();
+  if (nome === 'relatorios') { carregarDia(); carregarRelatorio(); }
   if (nome === 'config') carregarConfig();
   if (nome === 'zap') carregarStatus();
 }
@@ -238,166 +404,500 @@ async function carregarStatus() {
     for (const id of ['#bolinha', '#bolinha2']) $(id).className = `bolinha ${s.estado}`;
     $('#status-txt').textContent = s.estado === 'conectado' ? `Conectado${s.numero ? ` · ${fone(s.numero)}` : ''}` : NOMES[s.estado] || s.estado;
     $('#zap-estado').textContent = NOMES[s.estado] || s.estado;
-    $('#zap-detalhe').textContent = s.estado === 'conectado'
-      ? `Número ${fone(s.numero)} conectado desde ${new Date(s.desde).toLocaleString('pt-BR')}.${s.mock ? ' SGP em modo de teste (dados falsos).' : ''}`
-      : s.estado === 'qr' ? 'Leia o QR code com o celular da empresa.' : '';
+    $('#zap-detalhe').textContent = s.estado === 'conectado' ? `Número ${fone(s.numero)} conectado desde ${new Date(s.desde).toLocaleString('pt-BR')}.${s.mock ? ' SGP em modo de teste.' : ''}` : s.estado === 'qr' ? 'Leia o QR code com o celular da empresa.' : '';
     $('#zap-passos').style.display = s.estado === 'qr' ? '' : 'none';
     $('#qr').innerHTML = s.qr ? `<img alt="QR code do WhatsApp" src="${s.qr}">` : `<span class="msg">${s.estado === 'conectado' ? 'Já conectado ✅' : 'Sem QR no momento'}</span>`;
-    return s;
   } catch {
     $('#bolinha').className = 'bolinha desconectado';
     $('#status-txt').textContent = 'Bot desligado';
-    return null;
   }
 }
 
-// ---------- Conversas ----------
-let conversas = [];
-let aberta = null;
+// ---------- Lista de conversas ----------
+async function carregarConfigAtendimento() {
+  config = await api('/api/atendimento-config').catch(() => config);
+  desenharFiltros();
+}
+function desenharFiltros() {
+  const fixos = [['todas', 'Todas'], ['aguardando', 'Aguardando'], ['atendimento', 'Em atendimento'], ['bot', 'Com o bot']];
+  $('#filtros').innerHTML = [...fixos.map(([v, t]) => `<button data-f="${v}" class="${filtro === v ? 'ativo' : ''}">${t}</button>`),
+    ...config.etiquetas.map((e) => `<button data-f="etq:${esc(e.nome)}" class="${filtro === `etq:${e.nome}` ? 'ativo' : ''}">${esc(e.nome)}</button>`)].join('');
+  $$('#filtros button').forEach((b) => b.addEventListener('click', () => { filtro = b.dataset.f; desenharFiltros(); desenharLista(); }));
+}
 async function carregarConversas() {
   try { conversas = await api('/api/conversas'); } catch { conversas = []; }
-  desenharLista();
+  const naFila = conversas.filter((c) => c.ticket && c.ticket.status === 'aguardando').length;
+  $('#cont-fila').hidden = !naFila;
+  $('#cont-fila').textContent = naFila;
+  if (!buscaAtiva()) desenharLista();
 }
+const buscaAtiva = () => $('#busca').value.trim().length >= 3 && !/^\d+$/.test($('#busca').value.trim());
 function desenharLista() {
-  const q = $('#busca').value.trim().toLowerCase().replace(/\D/g, '') || $('#busca').value.trim().toLowerCase();
-  const filtradas = conversas.filter((c) => !q || (c.nome || '').toLowerCase().includes(q) || String(c.numero).includes(q));
-  $('#itens').innerHTML = filtradas.length ? filtradas.map((c) => `
-    <div class="item${aberta === c.id ? ' ativo' : ''}" data-id="${esc(c.id)}">
-      <span class="nome">${esc(c.nome || fone(c.numero) || c.id)}</span>
-      <span class="hora">${hora(c.hora)}</span>
-      <span class="ultima">${c.deMim ? '↪ ' : ''}${esc(c.ultima)}</span>
-      <span class="marcas">${c.pausado ? '<span class="etiqueta">com atendente</span>' : ''}${c.naoLidas ? `<span class="naolidas">${c.naoLidas}</span>` : ''}</span>
-    </div>`).join('') : `<div class="vazio" style="padding:30px 16px">${conversas.length ? 'Nada encontrado.' : 'Nenhuma conversa ainda (o WhatsApp precisa estar conectado).'}</div>`;
-  document.querySelectorAll('.item').forEach((el) => el.addEventListener('click', () => abrirConversa(el.dataset.id)));
+  const q = $('#busca').value.trim().toLowerCase();
+  const qn = q.replace(/\D/g, '');
+  let lista = conversas.filter((c) => {
+    if (filtro === 'aguardando') return c.ticket && c.ticket.status === 'aguardando';
+    if (filtro === 'atendimento') return c.ticket && c.ticket.status === 'atendimento';
+    if (filtro === 'bot') return !c.pausado;
+    if (filtro.startsWith('etq:')) return (c.etiquetas || []).includes(filtro.slice(4));
+    return true;
+  }).filter((c) => !q || (c.nome || '').toLowerCase().includes(q) || (qn && String(c.numero).includes(qn)));
+  // Na fila primeiro (quem espera há mais tempo no topo)
+  lista = lista.sort((a, b) => {
+    const pa = a.ticket ? (a.ticket.status === 'aguardando' ? 0 : 1) : 2;
+    const pb = b.ticket ? (b.ticket.status === 'aguardando' ? 0 : 1) : 2;
+    if (pa !== pb) return pa - pb;
+    if (pa === 0) return a.ticket.abertoEm - b.ticket.abertoEm;
+    return (b.hora || 0) - (a.hora || 0);
+  });
+  $('#itens').innerHTML = lista.length ? lista.map((c) => {
+    const sit = c.ticket ? `<span class="situacao ${c.ticket.status}">${NOME_SIT[c.ticket.status]}${c.ticket.status === 'aguardando' ? ` · ${duracao(Date.now() - c.ticket.abertoEm)}` : ''}</span>` : '';
+    return `<div class="item${aberta === c.id ? ' ativo' : ''}" data-id="${esc(c.id)}">
+      <div class="l1"><span class="nome">${esc(c.nome || fone(c.numero) || c.id)}</span><span class="hora">${hora(c.hora)}</span></div>
+      <div class="l2"><span class="ultima">${c.deMim ? '↪ ' : ''}${esc(c.ultima)}</span>${c.naoLidas ? `<span class="naolidas">${c.naoLidas}</span>` : ''}</div>
+      ${sit || (c.etiquetas || []).length ? `<div class="l3">${sit}${(c.etiquetas || []).map(etqHtml).join('')}</div>` : ''}
+    </div>`;
+  }).join('') : `<div class="vazio">${conversas.length ? 'Nenhuma conversa neste filtro.' : 'Nenhuma conversa ainda (o WhatsApp precisa estar conectado).'}</div>`;
+  $$('.item').forEach((el) => el.addEventListener('click', () => abrirConversa(el.dataset.id)));
 }
-$('#busca').addEventListener('input', desenharLista);
+// Busca: nome/número na lista; com 3+ letras também procura dentro das mensagens
+let tBusca = null;
+$('#busca').addEventListener('input', () => {
+  clearTimeout(tBusca);
+  if (!buscaAtiva()) return desenharLista();
+  tBusca = setTimeout(async () => {
+    const q = $('#busca').value.trim();
+    const contatos = conversas.filter((c) => (c.nome || '').toLowerCase().includes(q.toLowerCase()));
+    const achados = await api(`/api/busca?q=${encodeURIComponent(q)}`).catch(() => []);
+    const marcar = (t) => esc(t).replace(new RegExp(esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), (m) => `<mark>${m}</mark>`);
+    $('#itens').innerHTML = (contatos.length ? `<div class="busca-res" style="cursor:default"><b>Contatos</b></div>${contatos.map((c) => `<div class="busca-res" data-id="${esc(c.id)}"><b>${esc(c.nome)}</b>${esc(fone(c.numero))}</div>`).join('')}` : '') +
+      `<div class="busca-res" style="cursor:default"><b>Mensagens (${achados.length})</b></div>` +
+      (achados.map((a) => `<div class="busca-res" data-id="${esc(a.chatId)}"><b>${esc(a.nome || fone(a.chatId.split('@')[0]))} · ${hora(a.hora)}</b>${a.deMim ? '↪ ' : ''}${marcar(a.texto.slice(0, 160))}</div>`).join('') || '<div class="vazio">Nada encontrado nas mensagens.</div>');
+    $$('#itens .busca-res[data-id]').forEach((el) => el.addEventListener('click', () => abrirConversa(el.dataset.id)));
+  }, 350);
+});
 
-async function abrirConversa(id, manterTexto) {
+// ---------- Conversa aberta ----------
+async function abrirConversa(id, manter) {
   aberta = id;
   document.body.classList.add('tem-conversa');
-  desenharLista();
+  if (!buscaAtiva()) desenharLista();
   let c;
   try { c = await api(`/api/conversa?id=${encodeURIComponent(id)}`); } catch (e) {
     $('#conversa').innerHTML = `<div class="vazio"><b>Não consegui abrir</b>${esc(e.message)}</div>`;
     return;
   }
   if (aberta !== id) return;
-  const rascunho = manterTexto ? ($('#texto') || {}).value || '' : '';
+  const rascunho = manter && $('#texto') ? $('#texto').value : '';
+  const rolagemNoFim = !manter || !$('#mensagens') || $('#mensagens').scrollTop + $('#mensagens').clientHeight >= $('#mensagens').scrollHeight - 40;
   let ultimoDia = '';
   const baloes = c.mensagens.map((m) => {
     const d = new Date(m.hora * 1000).toLocaleDateString('pt-BR');
     const sep = d !== ultimoDia ? `<div class="dia-sep">${d === new Date().toLocaleDateString('pt-BR') ? 'Hoje' : d}</div>` : '';
     ultimoDia = d;
-    const midia = m.tipo !== 'chat' && TIPOS[m.tipo] ? `<span class="midia">${TIPOS[m.tipo]}</span>${m.corpo && m.tipo !== 'ptt' && m.tipo !== 'audio' ? '\n' : ''}` : '';
-    const corpo = m.tipo === 'ptt' || m.tipo === 'audio' || m.tipo === 'sticker' ? '' : esc(m.corpo);
-    return `${sep}<div class="balao${m.deMim ? ' mim' : ''}">${midia}${corpo}<span class="meta">${new Date(m.hora * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}${m.deMim ? (m.ack >= 3 ? ' ✓✓' : m.ack >= 2 ? ' ✓✓' : ' ✓') : ''}</span></div>`;
+    const src = `/api/midia?id=${encodeURIComponent(m.id)}`;
+    let midia = '';
+    if (m.midia && (m.tipo === 'image' || m.tipo === 'sticker')) midia = `<img class="foto" loading="lazy" src="${src}" alt="foto" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'midia',textContent:'📷 Foto (não disponível)'}))">`;
+    else if (m.midia && (m.tipo === 'ptt' || m.tipo === 'audio')) midia = `<audio controls preload="none" src="${src}"></audio>`;
+    else if (m.midia && m.tipo === 'video') midia = `<video controls preload="none" src="${src}" style="max-width:280px;border-radius:6px"></video>`;
+    else if (m.midia && m.tipo === 'document') midia = `<a class="doc" href="${src}" target="_blank">📄 <span>${esc(m.arquivo || 'Documento')}</span></a>`;
+    else if (m.tipo !== 'chat' && TIPOS[m.tipo]) midia = `<span class="midia">${TIPOS[m.tipo]}</span>\n`;
+    const corpo = ['ptt', 'audio', 'sticker'].includes(m.tipo) || (m.tipo === 'document' && m.corpo === m.arquivo) ? '' : esc(m.corpo);
+    const visto = m.deMim ? (m.ack >= 2 ? ' ✓✓' : ' ✓') : '';
+    return `${sep}<div class="balao${m.deMim ? ' mim' : ''}">${midia}${corpo}<span class="meta">${new Date(m.hora * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}${visto}</span></div>`;
   }).join('');
+  const t = c.ticket;
+  const situacao = t ? `<span class="situacao ${t.status}">${NOME_SIT[t.status]}</span>` : `<span class="situacao bot">${c.pausado ? 'Bot pausado' : 'Com o bot'}</span>`;
   $('#conversa').innerHTML = `
     <div class="topo-conversa">
       <button class="botao" id="voltar" style="display:none">←</button>
-      <div class="quem"><b>${esc(c.nome || fone(c.numero))}</b><span>${esc(fone(c.numero))} · ${c.pausado ? 'bot pausado (com atendente)' : 'bot atendendo'}</span></div>
-      <div class="acoes">${c.pausado
-        ? '<button class="botao principal" id="religar">Religar o bot</button>'
-        : '<button class="botao" id="pausar">Assumir (pausar o bot)</button>'}</div>
+      <div class="quem"><b>${esc(c.nome || fone(c.numero))} ${situacao}</b><span>${esc(fone(c.numero))}${t ? ` · Protocolo ${t.protocolo} · na fila há ${duracao(Date.now() - t.abertoEm)}` : ''}</span></div>
+      <div class="acoes">
+        ${!t || t.status === 'aguardando' ? '<button class="botao principal" id="assumir">Assumir</button>' : ''}
+        ${t || c.pausado ? '<button class="botao" id="abrir-encerrar">Encerrar ▾</button>' : ''}
+        <button class="botao" id="ver-lado" title="Ficha, etiquetas e notas">ⓘ</button>
+        <div class="menu-encerrar" id="menu-encerrar">
+          <button data-avisar="1">Encerrar e avisar o cliente<small>Manda a mensagem de encerramento com o protocolo e religa o bot</small></button>
+          <button data-avisar="0">Encerrar sem mensagem<small>Só religa o bot nessa conversa</small></button>
+        </div>
+      </div>
     </div>
     <div class="mensagens" id="mensagens">${baloes || '<div class="vazio">Sem mensagens.</div>'}</div>
-    <div class="escrever"><textarea id="texto" rows="1" placeholder="Escreva uma mensagem (Enter envia, Shift+Enter quebra a linha)"></textarea><button class="botao principal" id="enviar">Enviar</button></div>
-    <div class="aviso-envio">Ao responder por aqui, o bot sai dessa conversa, igual quando o atendente responde pelo celular.</div>`;
+    <div class="anexo" id="anexo"></div>
+    <div class="rapidas" id="rapidas">${config.respostas.map((r, i) => `<button data-i="${i}" title="${esc(r.texto)}">/${esc(r.atalho)}</button>`).join('') || '<span class="msg">Cadastre respostas rápidas em Configurações</span>'}</div>
+    <div class="escrever">
+      <div class="sugestoes" id="sugestoes"></div>
+      <button class="icone" id="anexar" title="Enviar foto, áudio ou PDF">📎</button>
+      <input type="file" id="arquivo" hidden>
+      <textarea id="texto" rows="1" placeholder="Mensagem (Enter envia, Shift+Enter quebra linha, / para respostas rápidas)"></textarea>
+      <button class="icone" id="relogio" title="Agendar esta mensagem">🕒</button>
+      <button class="botao principal" id="enviar" style="height:38px">Enviar</button>
+    </div>
+    <div class="agendar" id="agendar">
+      <span class="msg">Enviar em:</span>
+      <input type="datetime-local" class="campo" id="quando" style="width:auto">
+      <button class="botao principal peq" id="confirmar-agendar">Agendar</button>
+      <button class="botao peq" id="fechar-agendar">Cancelar</button>
+      <span class="msg" id="msg-agendar"></span>
+    </div>
+    <div class="aviso-envio" id="aviso-envio">Ao responder por aqui, o bot sai dessa conversa, igual quando o atendente responde pelo celular.</div>`;
   const caixa = $('#mensagens');
-  caixa.scrollTop = caixa.scrollHeight;
-  const t = $('#texto');
-  t.value = rascunho;
-  t.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } });
-  t.addEventListener('input', () => { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 140) + 'px'; });
-  $('#enviar').addEventListener('click', enviar);
-  if ($('#pausar')) $('#pausar').addEventListener('click', async () => { await api('/api/pausar', { id }); abrirConversa(id, true); carregarConversas(); });
-  if ($('#religar')) $('#religar').addEventListener('click', async () => { await api('/api/religar', { id }); abrirConversa(id, true); carregarConversas(); });
+  if (rolagemNoFim) caixa.scrollTop = caixa.scrollHeight;
+  caixa.querySelectorAll('img.foto').forEach((img) => img.addEventListener('click', () => { $('#zoom img').src = img.src; $('#zoom').style.display = 'grid'; }));
+  caixa.querySelectorAll('img.foto').forEach((img) => img.addEventListener('load', () => { if (rolagemNoFim) caixa.scrollTop = caixa.scrollHeight; }));
+  ligarEscrever(id, rascunho, manter);
+  if ($('#assumir')) $('#assumir').addEventListener('click', async () => { await api('/api/assumir', { id }); abrirConversa(id, true); carregarConversas(); });
+  if ($('#abrir-encerrar')) $('#abrir-encerrar').addEventListener('click', (e) => { e.stopPropagation(); $('#menu-encerrar').classList.toggle('aberto'); });
+  $$('#menu-encerrar button').forEach((b) => b.addEventListener('click', async () => {
+    await api('/api/encerrar', { id, avisar: b.dataset.avisar === '1' });
+    abrirConversa(id, true); carregarConversas();
+  }));
+  $('#ver-lado').addEventListener('click', () => $('#lado').classList.toggle('mostrar'));
   if (matchMedia('(max-width: 760px)').matches) {
     $('#voltar').style.display = '';
     $('#voltar').addEventListener('click', () => { document.body.classList.remove('tem-conversa'); aberta = null; desenharLista(); });
   }
-  if (!manterTexto) t.focus();
+  if (!manter || $('#lado').dataset.id !== id) desenharLado(c);
+  else desenharEtiquetasENotas(c);
 }
+document.addEventListener('click', () => { const m = $('#menu-encerrar'); if (m) m.classList.remove('aberto'); });
+$('#zoom').addEventListener('click', () => { $('#zoom').style.display = 'none'; });
+
+// Caixa de texto: respostas rápidas (botões e "/"), anexo e agendamento
+function ligarEscrever(id, rascunho, manter) {
+  const t = $('#texto');
+  t.value = rascunho;
+  const ajustar = () => { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 140) + 'px'; };
+  ajustar();
+  let sel = 0;
+  const sugestoes = () => {
+    const m = t.value.match(/^\/(\S*)$/);
+    const box = $('#sugestoes');
+    if (!m) { box.style.display = 'none'; return []; }
+    const lista = config.respostas.filter((r) => r.atalho.startsWith(m[1].toLowerCase()));
+    if (!lista.length) { box.style.display = 'none'; return []; }
+    sel = Math.min(sel, lista.length - 1);
+    box.innerHTML = lista.map((r, i) => `<div class="${i === sel ? 'sel' : ''}" data-a="${esc(r.atalho)}"><b>/${esc(r.atalho)}</b> ${esc(r.texto.slice(0, 90))}</div>`).join('');
+    box.style.display = 'block';
+    $$('div', box).forEach((d) => d.addEventListener('mousedown', (e) => { e.preventDefault(); usar(d.dataset.a); }));
+    return lista;
+  };
+  const usar = (atalho) => {
+    const r = config.respostas.find((x) => x.atalho === atalho);
+    if (!r) return;
+    t.value = r.texto;
+    $('#sugestoes').style.display = 'none';
+    ajustar();
+    t.focus();
+  };
+  t.addEventListener('input', () => { sel = 0; ajustar(); sugestoes(); });
+  t.addEventListener('keydown', (e) => {
+    const lista = $('#sugestoes').style.display === 'block' ? sugestoes() : [];
+    if (lista.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + lista.length) % lista.length; sugestoes(); return; }
+    if (lista.length && (e.key === 'Enter' || e.key === 'Tab')) { e.preventDefault(); usar(lista[sel].atalho); return; }
+    if (e.key === 'Escape') $('#sugestoes').style.display = 'none';
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); }
+  });
+  $$('#rapidas button').forEach((b) => b.addEventListener('click', () => usar(config.respostas[Number(b.dataset.i)].atalho)));
+  $('#anexar').addEventListener('click', () => $('#arquivo').click());
+  $('#arquivo').addEventListener('change', () => {
+    const f = $('#arquivo').files[0];
+    if (!f) return;
+    if (f.size > 15 * 1024 * 1024) { avisoEnvio('Arquivo grande demais (máximo 15 MB).', true); return; }
+    const leitor = new FileReader();
+    leitor.onload = () => {
+      anexo = { nome: f.name, tipo: f.type || 'application/octet-stream', base64: String(leitor.result).split(',')[1] };
+      $('#anexo').style.display = 'block';
+      $('#anexo').innerHTML = `📎 ${esc(f.name)} <button class="botao peq" id="tirar-anexo">tirar</button> <span class="msg">o texto vai como legenda</span>`;
+      $('#tirar-anexo').addEventListener('click', () => { anexo = null; $('#anexo').style.display = 'none'; $('#arquivo').value = ''; });
+    };
+    leitor.readAsDataURL(f);
+  });
+  $('#relogio').addEventListener('click', () => {
+    const p = $('#agendar');
+    p.style.display = p.style.display === 'flex' ? 'none' : 'flex';
+    const d = new Date(Date.now() + 3600000);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    $('#quando').value = d.toISOString().slice(0, 16);
+  });
+  $('#fechar-agendar').addEventListener('click', () => { $('#agendar').style.display = 'none'; });
+  $('#confirmar-agendar').addEventListener('click', async () => {
+    const texto = t.value.trim();
+    const quando = new Date($('#quando').value).getTime();
+    try {
+      await api('/api/agendadas', { id, texto, quando });
+      t.value = '';
+      $('#msg-agendar').className = 'msg ok';
+      $('#msg-agendar').textContent = `Agendada para ${new Date(quando).toLocaleString('pt-BR')} ✅`;
+      setTimeout(() => { $('#agendar').style.display = 'none'; }, 1800);
+    } catch (e) { $('#msg-agendar').className = 'msg erro'; $('#msg-agendar').textContent = e.message; }
+  });
+  $('#enviar').addEventListener('click', enviar);
+  if (!manter) t.focus();
+}
+function avisoEnvio(msg, erro) { const a = $('#aviso-envio'); if (a) { a.textContent = msg; a.style.color = erro ? 'var(--erro)' : ''; } }
 async function enviar() {
   const t = $('#texto');
   const texto = t.value.trim();
-  if (!texto || !aberta) return;
+  if ((!texto && !anexo) || !aberta) return;
   $('#enviar').disabled = true;
   try {
-    await api('/api/enviar', { id: aberta, texto });
+    await api('/api/enviar', { id: aberta, texto, arquivo: anexo });
     t.value = '';
-    setTimeout(() => abrirConversa(aberta), 700);
+    anexo = null;
+    $('#anexo').style.display = 'none';
+    setTimeout(() => abrirConversa(aberta, true), 800);
   } catch (e) {
-    alertaEnvio(`Não enviou: ${e.message}`);
+    avisoEnvio(`Não enviou: ${e.message}`, true);
   } finally { $('#enviar').disabled = false; }
 }
-function alertaEnvio(msg) { const a = document.querySelector('.aviso-envio'); if (a) { a.textContent = msg; a.style.color = 'var(--erro)'; } }
 
-// ---------- Painel do dia ----------
+// ---------- Lado: ficha do SGP, etiquetas e notas ----------
+async function desenharLado(c, doc) {
+  const lado = $('#lado');
+  lado.dataset.id = c.id;
+  lado.innerHTML = `<section id="lado-ficha"><h4>Cliente no SGP</h4><p class="msg">Buscando…</p></section>
+    <section><h4>Etiquetas</h4><div class="etqs" id="lado-etqs"></div></section>
+    <section><h4>Notas internas</h4><p class="msg" style="margin:0 0 8px">Só a equipe vê. O cliente não recebe.</p><div id="lado-notas"></div>
+      <textarea class="campo" id="nova-nota" rows="2" placeholder="Escreva uma nota"></textarea>
+      <div class="barra-acoes" style="margin-top:8px"><button class="botao peq" id="salvar-nota">Adicionar nota</button></div></section>`;
+  desenharEtiquetasENotas(c);
+  $('#salvar-nota').addEventListener('click', async () => {
+    const texto = $('#nova-nota').value.trim();
+    if (!texto) return;
+    const r = await api('/api/nota', { id: c.id, texto });
+    $('#nova-nota').value = '';
+    c.notas = r.notas;
+    desenharEtiquetasENotas(c);
+  });
+  const f = await api(`/api/ficha?id=${encodeURIComponent(c.id)}${doc ? `&doc=${encodeURIComponent(doc)}` : ''}`).catch((e) => ({ encontrado: false, erro: e.message }));
+  if ($('#lado').dataset.id !== c.id) return;
+  const box = $('#lado-ficha');
+  const formBusca = `<div style="display:flex;gap:6px;margin-top:8px"><input class="campo" id="ficha-doc" placeholder="CPF/CNPJ ou ID do SGP"><button class="botao peq" id="ficha-buscar">Buscar</button></div>`;
+  if (!f.encontrado) {
+    box.innerHTML = `<h4>Cliente no SGP</h4><p class="msg" style="margin:0">${f.erro ? `Não consegui consultar o SGP (${esc(f.erro)}).` : f.doc ? 'Não achei cadastro com o documento que o cliente informou.' : 'O cliente ainda não informou o CPF ao bot.'}</p>${formBusca}`;
+  } else {
+    const k = f.contrato;
+    box.innerHTML = `<h4>Cliente no SGP</h4>
+      <div style="font-weight:650;margin-bottom:4px">${esc(k.nome || '')}</div>
+      <div class="linha"><span>ID / contrato</span><span>${esc(k.id)}</span></div>
+      <div class="linha"><span>Situação</span><span>${esc(k.status || '–')}</span></div>
+      <div class="linha"><span>Conexão</span><span>${f.online === true ? '🟢 online' : f.online === false ? '🔴 offline' : '–'}</span></div>
+      ${k.plano ? `<div class="linha"><span>Plano</span><span>${esc(k.plano)}</span></div>` : ''}
+      ${k.endereco ? `<div class="linha"><span>Endereço</span><span>${esc(k.endereco)}</span></div>` : ''}
+      ${k.referencia ? `<div class="linha"><span>Referência</span><span>${esc(k.referencia)}</span></div>` : ''}
+      ${(k.telefones || []).length ? `<div class="linha"><span>Telefones</span><span>${k.telefones.map((x) => esc(fone(x))).join('<br>')}</span></div>` : ''}
+      <h4 style="margin-top:12px">Faturas em aberto</h4>
+      ${f.faturas.length ? f.faturas.map((x) => `<div class="fatura"><span>${esc(dataBR(x.vencimento))}</span><span>${x.link ? `<a href="${esc(x.link)}" target="_blank">${dinheiro(x.valor)}</a>` : dinheiro(x.valor)}</span></div>`).join('') : '<p class="msg" style="margin:0">Nenhuma em aberto ✅</p>'}
+      ${f.outros.length ? `<p class="msg" style="margin:10px 0 0">Outros contratos: ${f.outros.map((o) => `${esc(o.id)} (${esc(o.status)})`).join(', ')}</p>` : ''}
+      ${formBusca}`;
+  }
+  $('#ficha-buscar').addEventListener('click', () => desenharLado(c, $('#ficha-doc').value));
+  $('#ficha-doc').addEventListener('keydown', (e) => { if (e.key === 'Enter') desenharLado(c, $('#ficha-doc').value); });
+}
+function desenharEtiquetasENotas(c) {
+  const box = $('#lado-etqs');
+  if (!box) return;
+  box.innerHTML = config.etiquetas.map((e) => `<button class="etq ${e.cor}${(c.etiquetas || []).includes(e.nome) ? ' on' : ''}" data-n="${esc(e.nome)}"><span>${esc(e.nome)}</span></button>`).join('') || '<span class="msg">Cadastre etiquetas em Configurações</span>';
+  $$('button', box).forEach((b) => b.addEventListener('click', async () => {
+    const atuais = new Set(c.etiquetas || []);
+    atuais.has(b.dataset.n) ? atuais.delete(b.dataset.n) : atuais.add(b.dataset.n);
+    c.etiquetas = [...atuais];
+    await api('/api/etiquetas', { id: c.id, etiquetas: c.etiquetas });
+    desenharEtiquetasENotas(c);
+    carregarConversas();
+  }));
+  $('#lado-notas').innerHTML = (c.notas || []).map((n) => `<div class="nota">${esc(n.texto)}<small>${new Date(n.em).toLocaleString('pt-BR')}</small><button title="Apagar" data-em="${n.em}">✕</button></div>`).join('');
+  $$('#lado-notas button').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('Apagar esta nota?')) return;
+    const r = await api('/api/nota', { id: c.id, apagar: b.dataset.em });
+    c.notas = r.notas;
+    desenharEtiquetasENotas(c);
+  }));
+}
+
+// ---------- Atendimentos (supervisor) ----------
+async function carregarFila() {
+  const [fila, agendadas] = await Promise.all([api('/api/fila').catch(() => []), api('/api/agendadas').catch(() => [])]);
+  const agu = fila.filter((t) => t.status === 'aguardando');
+  const atd = fila.filter((t) => t.status === 'atendimento');
+  const maisAntigo = agu.length ? Date.now() - agu[0].abertoEm : 0;
+  $('#fila-cards').innerHTML = [
+    ['Aguardando atendente', agu.length], ['Em atendimento', atd.length], ['Maior espera agora', agu.length ? duracao(maisAntigo) : '–'],
+    ['Agendadas pendentes', agendadas.filter((a) => a.status === 'pendente').length],
+  ].map(([r, v]) => `<div class="card"><div class="rot">${r}</div><div class="num">${v}</div></div>`).join('');
+  const nome = (t) => esc(t.nome || fone(t.numero) || t.chatId);
+  $('#fila-aguardando').innerHTML = agu.length ? `<table class="tabela"><tr><th>Cliente</th><th>Protocolo</th><th>Esperando há</th><th>Última mensagem do cliente</th><th>Etiquetas</th></tr>${agu.map((t) => {
+    const espera = Date.now() - t.abertoEm;
+    return `<tr class="clicavel" data-id="${esc(t.chatId)}"><td><b>${nome(t)}</b><br><span class="msg">${esc(fone(t.numero))}</span></td><td>${t.protocolo}</td><td class="espera${espera > 10 * 60000 ? ' atrasado' : ''}">${duracao(espera)}</td><td>${t.ultimaClienteEm ? `há ${duracao(Date.now() - t.ultimaClienteEm)}` : '–'}</td><td>${(t.etiquetas || []).map(etqHtml).join(' ')}</td></tr>`;
+  }).join('')}</table>` : '<p class="msg">Ninguém esperando. 🎉</p>';
+  $('#fila-atendimento').innerHTML = atd.length ? `<table class="tabela"><tr><th>Cliente</th><th>Protocolo</th><th>Na fila há</th><th>1ª resposta em</th><th>Etiquetas</th></tr>${atd.map((t) => `<tr class="clicavel" data-id="${esc(t.chatId)}"><td><b>${nome(t)}</b><br><span class="msg">${esc(fone(t.numero))}</span></td><td>${t.protocolo}</td><td>${duracao(Date.now() - t.abertoEm)}</td><td>${t.primeiraRespostaEm ? duracao(t.primeiraRespostaEm - t.abertoEm) : '–'}</td><td>${(t.etiquetas || []).map(etqHtml).join(' ')}</td></tr>`).join('')}</table>` : '<p class="msg">Nenhum atendimento em andamento.</p>';
+  const SIT_AG = { pendente: '🕒 Pendente', enviada: '✅ Enviada', erro: '⚠️ Erro', enviando: '⏳ Enviando' };
+  $('#agendadas').innerHTML = agendadas.length ? `<table class="tabela"><tr><th>Quando</th><th>Para</th><th>Mensagem</th><th>Situação</th><th></th></tr>${agendadas.map((a) => `<tr><td>${new Date(a.quando).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</td><td>${esc(a.nome || fone(a.chatId.split('@')[0]))}</td><td>${esc(a.texto.slice(0, 120))}</td><td>${SIT_AG[a.status] || a.status}${a.erro ? ` <span class="msg">${esc(a.erro)}</span>` : ''}</td><td>${a.status === 'pendente' ? `<button class="botao peq perigo" data-cancelar="${a.id}">Cancelar</button>` : ''}</td></tr>`).join('')}</table>` : '<p class="msg">Nenhuma mensagem agendada. Para agendar, abra uma conversa e clique em 🕒.</p>';
+  $$('#aba-fila tr.clicavel').forEach((tr) => tr.addEventListener('click', () => { abrirAba('conversas'); abrirConversa(tr.dataset.id); }));
+  $$('#agendadas [data-cancelar]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('Cancelar esta mensagem agendada?')) return;
+    await api('/api/agendadas', { cancelar: b.dataset.cancelar });
+    carregarFila();
+  }));
+}
+
+// ---------- Relatórios ----------
 function classeLog(l) {
   if (/\[bot →\]/.test(l)) return 'l-bot';
   if (/\[técnico\]|\[caixa\]|\[cadastro\]|\[painel\]/.test(l)) return 'l-tec';
   if (/erro|falhou|não consegui|⚠️/i.test(l)) return 'l-err';
   return '';
 }
-function linhaLog(l) { return `<div class="${classeLog(l)}">${esc(l.slice(11))}</div>`; }
+const linhaLog = (l) => `<div class="${classeLog(l)}">${esc(l.slice(11))}</div>`;
 async function carregarDia() {
   const d = await api('/api/dia').catch(() => null);
   if (!d) return;
   $('#dia-sub').textContent = `${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} · contado no log de hoje do bot`;
   $('#cards').innerHTML = d.metricas.map((m) => `<div class="card"><div class="rot">${esc(m.rotulo)}</div><div class="num">${m.valor}</div></div>`).join('');
   const max = Math.max(1, ...d.porHora);
-  $('#grafico').innerHTML = d.porHora.map((v, h) => `<div class="barra" title="${h}h: ${v} conversa(s)"><i style="height:${(v / max) * 100}%"></i><span>${h % 3 === 0 ? h + 'h' : ''}</span></div>`).join('');
-  const log = $('#log');
-  log.innerHTML = d.log.map(linhaLog).join('');
-  log.scrollTop = log.scrollHeight;
+  $('#grafico').innerHTML = d.porHora.map((v, h) => `<div class="barra" title="${h}h: ${v}"><i style="height:${(v / max) * 100}%"></i><span>${h % 3 === 0 ? h + 'h' : ''}</span></div>`).join('');
+  $('#log').innerHTML = d.log.map(linhaLog).join('');
+  $('#log').scrollTop = $('#log').scrollHeight;
+}
+let diasRel = 7;
+$$('#periodo button').forEach((b) => b.addEventListener('click', () => { diasRel = Number(b.dataset.dias); $$('#periodo button').forEach((x) => x.classList.toggle('ativo', x === b)); carregarRelatorio(); }));
+async function carregarRelatorio() {
+  const r = await api(`/api/relatorio?dias=${diasRel}`).catch(() => null);
+  if (!r) return;
+  $('#rel-cards').innerHTML = [
+    ['Atendimentos encerrados', r.total], ['Tempo médio até a 1ª resposta', minTxt(r.mediaPrimeiraMin)], ['Tempo médio de atendimento', minTxt(r.mediaTotalMin)],
+    ['Encerrados sem resposta', r.semResposta], ['Na fila agora', r.abertosAgora],
+  ].map(([t, v]) => `<div class="card"><div class="rot">${t}</div><div class="num">${v}</div></div>`).join('');
+  const max = Math.max(1, ...r.porDia.map((d) => d.atendimentos));
+  const passo = r.porDia.length > 31 ? 7 : r.porDia.length > 10 ? 3 : 1;
+  $('#rel-grafico').innerHTML = r.porDia.map((d, i) => `<div class="barra" title="${dataBR(d.dia)}: ${d.atendimentos} atendimento(s), 1ª resposta média ${minTxt(d.primeiraMin)}"><i style="height:${(d.atendimentos / max) * 100}%"></i><span>${i % passo === 0 ? dataBR(d.dia).slice(0, 5) : ''}</span></div>`).join('');
+  const barras = (lista) => {
+    const m = Math.max(1, ...lista.map((x) => x.n));
+    return lista.length ? lista.map((x) => `<div><span title="${esc(x.nome)}">${esc(x.nome)}</span><i style="width:${(x.n / m) * 60}%"></i><b>${x.n}</b></div>`).join('') : '<p class="msg">Sem dados no período.</p>';
+  };
+  $('#rel-etiquetas').innerHTML = barras(r.porEtiqueta);
+  $('#rel-motivos').innerHTML = barras(r.porMotivo);
 }
 
 // ---------- Configurações ----------
+$$('#subnav button').forEach((b) => b.addEventListener('click', () => {
+  $$('#subnav button').forEach((x) => x.classList.toggle('ativo', x === b));
+  $$('.secao').forEach((s) => s.classList.toggle('ativa', s.id === `sec-${b.dataset.sec}`));
+}));
+const CORES = [['green', 'Verde'], ['blue', 'Azul'], ['purple', 'Roxo'], ['teal', 'Turquesa'], ['red', 'Vermelho'], ['orange', 'Laranja'], ['pink', 'Rosa'], ['gray', 'Cinza']];
+const msgCfg = (id, ok, texto) => { $(id).className = `msg ${ok ? 'ok' : 'erro'}`; $(id).textContent = texto; };
 async function carregarConfig() {
+  await carregarConfigAtendimento();
+  desenharRespostas(config.respostas);
+  desenharEtiquetasCfg(config.etiquetas);
+  $('#texto-encerramento').value = config.textoEncerramento || '';
+  const textos = await api('/api/textos').catch(() => []);
+  $('#lista-textos').innerHTML = textos.map((t) => `<div class="texto-bot"><label>${esc(t.nome)}</label><textarea class="campo" data-chave="${t.chave}" placeholder="${esc(t.padrao)}">${esc(t.valor)}</textarea></div>`).join('');
   const campos = await api('/api/config').catch(() => []);
-  $('#campos').innerHTML = campos.map((c) => {
+  $('#campos-env').innerHTML = campos.map((c) => {
     const valor = c.lista ? String(c.valor || '').split(c.separador || ',').filter(Boolean).join('\n') : c.valor;
-    const entrada = c.lista
-      ? `<textarea data-chave="${c.chave}" data-sep="${esc(c.separador || ',')}" spellcheck="false">${esc(valor)}</textarea>`
-      : `<input data-chave="${c.chave}" value="${esc(valor)}" spellcheck="false">`;
-    return `<div class="campo"><label>${esc(c.rotulo)}<small>${esc(c.ajuda)}${c.lista ? ' (um por linha)' : ''}</small></label><div>${entrada}</div></div>`;
+    const entrada = c.lista ? `<textarea class="campo" data-chave="${c.chave}" data-sep="${esc(c.separador || ',')}" spellcheck="false">${esc(valor)}</textarea>` : `<input class="campo" data-chave="${c.chave}" value="${esc(valor)}" spellcheck="false">`;
+    return `<div class="campo-env"><label>${esc(c.rotulo)}<small>${esc(c.ajuda)}${c.lista ? ' (um por linha)' : ''}</small></label><div>${entrada}</div></div>`;
   }).join('');
 }
-$('#salvar').addEventListener('click', async () => {
+function desenharRespostas(lista) {
+  $('#lista-respostas').innerHTML = lista.map((r) => `<div class="linha-edit"><input class="campo" data-a value="${esc(r.atalho)}" placeholder="atalho (ex.: pix)"><textarea class="campo" data-t rows="2" placeholder="Texto da resposta">${esc(r.texto)}</textarea><button class="botao perigo peq" data-tirar>Tirar</button></div>`).join('');
+  $$('#lista-respostas [data-tirar]').forEach((b) => b.addEventListener('click', () => b.parentElement.remove()));
+}
+function desenharEtiquetasCfg(lista) {
+  $('#lista-etiquetas').innerHTML = lista.map((e) => `<div class="linha-edit etq-edit"><input class="campo" data-n value="${esc(e.nome)}" placeholder="Nome da etiqueta"><select class="campo" data-c>${CORES.map(([v, t]) => `<option value="${v}"${v === e.cor ? ' selected' : ''}>${t}</option>`).join('')}</select><button class="botao perigo peq" data-tirar>Tirar</button></div>`).join('');
+  $$('#lista-etiquetas [data-tirar]').forEach((b) => b.addEventListener('click', () => b.parentElement.remove()));
+}
+$('#add-resposta').addEventListener('click', () => {
+  const atuais = $$('#lista-respostas .linha-edit').map((l) => ({ atalho: $('[data-a]', l).value, texto: $('[data-t]', l).value }));
+  desenharRespostas([...atuais, { atalho: '', texto: '' }]);
+  $$('#lista-respostas [data-a]').pop().focus();
+});
+$('#add-etiqueta').addEventListener('click', () => {
+  const atuais = $$('#lista-etiquetas .linha-edit').map((l) => ({ nome: $('[data-n]', l).value, cor: $('[data-c]', l).value }));
+  desenharEtiquetasCfg([...atuais, { nome: '', cor: 'blue' }]);
+  $$('#lista-etiquetas [data-n]').pop().focus();
+});
+$('#salvar-respostas').addEventListener('click', async () => {
+  const respostas = $$('#lista-respostas .linha-edit').map((l) => ({ atalho: $('[data-a]', l).value, texto: $('[data-t]', l).value }));
+  try { await api('/api/atendimento-config', { respostas }); await carregarConfig(); msgCfg('#msg-respostas', true, 'Salvo ✅'); } catch (e) { msgCfg('#msg-respostas', false, e.message); }
+});
+$('#salvar-etiquetas').addEventListener('click', async () => {
+  const etiquetas = $$('#lista-etiquetas .linha-edit').map((l) => ({ nome: $('[data-n]', l).value, cor: $('[data-c]', l).value }));
+  try { await api('/api/atendimento-config', { etiquetas, textoEncerramento: $('#texto-encerramento').value }); await carregarConfig(); msgCfg('#msg-etiquetas', true, 'Salvo ✅'); } catch (e) { msgCfg('#msg-etiquetas', false, e.message); }
+});
+$('#salvar-textos').addEventListener('click', async () => {
   const dados = {};
-  document.querySelectorAll('#campos [data-chave]').forEach((el) => {
+  $$('#lista-textos [data-chave]').forEach((el) => { dados[el.dataset.chave] = el.value; });
+  try { await api('/api/textos', dados); msgCfg('#msg-textos', true, 'Salvo ✅ Já vale nas próximas mensagens do bot.'); } catch (e) { msgCfg('#msg-textos', false, e.message); }
+});
+$('#salvar-env').addEventListener('click', async () => {
+  const dados = {};
+  $$('#campos-env [data-chave]').forEach((el) => {
     dados[el.dataset.chave] = el.tagName === 'TEXTAREA' ? el.value.split('\n').map((x) => x.trim()).filter(Boolean).join(el.dataset.sep) : el.value.trim();
   });
-  try {
-    await api('/api/config', dados);
-    $('#config-msg').className = 'msg ok';
-    $('#config-msg').textContent = 'Salvo ✅ Clique em "Reiniciar o bot" para valer.';
-  } catch (e) {
-    $('#config-msg').className = 'msg erro';
-    $('#config-msg').textContent = `Não salvou: ${e.message}`;
-  }
+  try { await api('/api/config', dados); msgCfg('#msg-env', true, 'Salvo ✅ Clique em "Reiniciar o bot" para valer.'); } catch (e) { msgCfg('#msg-env', false, e.message); }
 });
 $('#reiniciar').addEventListener('click', async () => {
   if (!confirm('Reiniciar o bot agora? Ele volta sozinho em uns 30 segundos.')) return;
   await api('/api/reiniciar', {}).catch(() => {});
-  $('#config-msg').className = 'msg';
-  $('#config-msg').textContent = 'Reiniciando… a página volta sozinha quando o bot ligar.';
+  msgCfg('#msg-env', true, 'Reiniciando… a página volta sozinha quando o bot ligar.');
 });
 
+// ---------- Avisos (som e notificação do Windows) ----------
+let avisosLigados = false;
+try { avisosLigados = localStorage.getItem('avisos') === '1'; } catch {}
+const desenharSino = () => { $('#sino').textContent = avisosLigados ? '🔔' : '🔕'; $('#sino').title = avisosLigados ? 'Avisos ligados (clique para desligar)' : 'Ligar avisos de nova mensagem'; };
+desenharSino();
+$('#sino').addEventListener('click', async () => {
+  avisosLigados = !avisosLigados;
+  if (avisosLigados && 'Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+  try { localStorage.setItem('avisos', avisosLigados ? '1' : '0'); } catch {}
+  desenharSino();
+  if (avisosLigados) bip();
+});
+let audioCtx = null;
+function bip() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.08;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.frequency.setValueAtTime(660, audioCtx.currentTime + 0.12); o.stop(audioCtx.currentTime + 0.25);
+  } catch {}
+}
+function avisar(titulo, corpo, chat) {
+  if (!avisosLigados) return;
+  bip();
+  if ('Notification' in window && Notification.permission === 'granted' && (document.hidden || chat !== aberta)) {
+    const n = new Notification(titulo, { body: corpo, tag: chat || 'painel' });
+    n.onclick = () => { window.focus(); if (chat) { abrirAba('conversas'); abrirConversa(chat); } n.close(); };
+  }
+}
+const nomeDe = (chat) => { const c = conversas.find((x) => x.id === chat); return c ? c.nome || fone(c.numero) : 'Cliente'; };
+
 // ---------- Ao vivo ----------
-let recarregarLista = null;
+let recarregar = null;
 function conectarEventos() {
   const ev = new EventSource('/api/eventos');
   ev.addEventListener('status', () => { carregarStatus(); carregarConversas(); });
   ev.addEventListener('mensagem', (e) => {
-    const { chat } = JSON.parse(e.data);
-    clearTimeout(recarregarLista);
-    recarregarLista = setTimeout(carregarConversas, 600);
-    if (chat && chat === aberta) setTimeout(() => abrirConversa(aberta, true), 400);
+    const d = JSON.parse(e.data);
+    clearTimeout(recarregar);
+    recarregar = setTimeout(() => { carregarConversas(); if (abaAtual === 'fila') carregarFila(); }, 600);
+    if (d.chat && d.chat === aberta) setTimeout(() => abrirConversa(aberta, true), 400);
+    if (d.cliente && d.naFila) avisar(`Nova mensagem de ${nomeDe(d.chat)}`, 'Cliente na fila de atendimento', d.chat);
+  });
+  ev.addEventListener('fila', (e) => {
+    const d = JSON.parse(e.data);
+    if (d.tipo === 'config') { carregarConfigAtendimento(); return; }
+    clearTimeout(recarregar);
+    recarregar = setTimeout(() => { carregarConversas(); if (abaAtual === 'fila') carregarFila(); }, 500);
+    if (d.novo) setTimeout(() => avisar('Novo cliente aguardando atendente', nomeDe(d.chat), d.chat), 900);
   });
   ev.addEventListener('log', (e) => {
-    if (abaAtual !== 'dia') return;
+    if (abaAtual !== 'relatorios') return;
     const log = $('#log');
     const noFim = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
     log.insertAdjacentHTML('beforeend', linhaLog(JSON.parse(e.data)));
@@ -407,10 +907,11 @@ function conectarEventos() {
 }
 
 carregarStatus();
-carregarConversas();
+carregarConfigAtendimento().then(carregarConversas);
 conectarEventos();
 setInterval(carregarStatus, 15000);
-setInterval(() => { if (abaAtual === 'dia') carregarDia(); }, 60000);
+setInterval(() => { if (abaAtual === 'conversas' && !buscaAtiva()) desenharLista(); if (abaAtual === 'fila') carregarFila(); }, 30000);
+setInterval(() => { if (abaAtual === 'relatorios') { carregarDia(); carregarRelatorio(); } }, 60000);
 </script>
 </body>
 </html>
