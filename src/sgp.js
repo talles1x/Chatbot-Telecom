@@ -53,6 +53,25 @@ async function consultarCliente(cpfcnpj) {
   return lerContratos(await post('/api/ura/consultacliente/', { cpfcnpj }));
 }
 
+// Cliente pelo telefone do WhatsApp (usado na ficha do painel quando o cliente ainda não deu o CPF).
+// Só aceita contratos que tenham MESMO esse telefone no cadastro: se o SGP ignorar o filtro e
+// devolver outros clientes, nada é mostrado.
+async function consultarTelefone(numero) {
+  const d = String(numero || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+  if (d.length < 10) return [];
+  if (cfg.sgp.mock) return [];
+  const final = d.slice(-8);
+  const ddd = d.slice(0, 2), resto = d.slice(2);
+  const variantes = [...new Set([d, `55${d}`, resto.length === 9 ? `${ddd}${resto.slice(1)}` : `${ddd}9${resto}`, resto])];
+  for (const telefone of variantes) {
+    let lista = [];
+    try { lista = lerContratos(await post('/api/ura/consultacliente/', { telefone })); } catch { continue; }
+    const certos = lista.filter((c) => (c.telefones || []).some((t) => t.slice(-8) === final));
+    if (certos.length && certos.length <= 10) return certos;
+  }
+  return [];
+}
+
 // Mesmo cadastro, buscando pelo número do contrato (usado pelos técnicos)
 async function consultarContrato(contrato) {
   if (cfg.sgp.mock) return mock.consultarCliente('22').filter((c) => String(c.id) === String(contrato));
@@ -244,6 +263,16 @@ async function criarChamado(contrato, conteudo, { contatoNome, contatoTelefone, 
   };
 }
 
+// Ocorrências ainda abertas de um contrato (para avisar antes de abrir outra igual)
+async function ocorrenciasAbertas(contrato) {
+  if (cfg.sgp.mock) return [];
+  const r = await post('/api/ura/ocorrencia/list/', { contrato: Number(contrato) || contrato, limit: 50 });
+  const lista = primeiro(r, ['ocorrencias', 'dados']) || [];
+  return (Array.isArray(lista) ? lista : [lista])
+    .filter((o) => o && !o.data_finalizacao && !/encerr|finaliz|fechad|cancel|conclu/i.test(String(o.status || '')))
+    .map((o) => ({ numero: o.numero, status: o.status || '', data: o.data_cadastro || '', conteudo: String(o.conteudo || '').replace(/\s+/g, ' ').slice(0, 120), tipo: o.tipo || '' }));
+}
+
 // ---------- Atualizar cadastro (técnicos) ----------
 // Telefone: a API só ADICIONA um contato ao contrato (o antigo continua no cadastro)
 async function adicionarContato(contrato, contato, tipo = 'CELULAR_PESSOAL') {
@@ -398,4 +427,4 @@ const mock = {
   },
 };
 
-module.exports = { consultarCliente, consultarContrato, titulosAbertos, titulosPagos, criarChamado, listarTecnicos, adicionarContato, adicionarAnotacao, criarPreCadastro, liberarPromessa, verificarAcesso };
+module.exports = { consultarCliente, consultarContrato, consultarTelefone, ocorrenciasAbertas, titulosAbertos, titulosPagos, criarChamado, listarTecnicos, adicionarContato, adicionarAnotacao, criarPreCadastro, liberarPromessa, verificarAcesso };
