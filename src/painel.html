@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel do bot</title>
+<style>
+  :root {
+    --fundo: #f3f4f1; --painel: #ffffff; --linha: #e3e5df; --texto: #1c2321; --suave: #66706b;
+    --verde: #128c5e; --verde-claro: #e3f3ea; --balao-mim: #dcf5e4; --balao: #ffffff;
+    --alerta: #b54708; --alerta-claro: #fdf0e3; --erro: #b42318; --azul: #1f5fae;
+    --raio: 10px; --sombra: 0 1px 2px rgba(20, 30, 25, .06), 0 2px 8px rgba(20, 30, 25, .05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fundo: #111614; --painel: #1a201e; --linha: #2a322f; --texto: #e6ebe8; --suave: #93a19a;
+      --verde: #3fbf8a; --verde-claro: #16332a; --balao-mim: #1d3b30; --balao: #222a27;
+      --alerta: #f0a35c; --alerta-claro: #3a2a1a; --erro: #f97066; --azul: #7aa7e6;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; background: var(--fundo); color: var(--texto); display: flex; flex-direction: column; }
+  button, input, textarea { font: inherit; color: inherit; }
+  header { display: flex; align-items: center; gap: 16px; padding: 0 20px; height: 56px; background: var(--painel); border-bottom: 1px solid var(--linha); flex: none; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
+  nav { display: flex; gap: 4px; margin-left: 12px; }
+  nav button { border: 0; background: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; color: var(--suave); font-weight: 550; }
+  nav button:hover { background: var(--fundo); color: var(--texto); }
+  nav button.ativo { background: var(--verde-claro); color: var(--verde); }
+  .status { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--suave); }
+  .bolinha { width: 9px; height: 9px; border-radius: 50%; background: var(--suave); }
+  .bolinha.conectado { background: var(--verde); box-shadow: 0 0 0 3px var(--verde-claro); }
+  .bolinha.qr, .bolinha.sincronizando, .bolinha.iniciando { background: var(--alerta); }
+  .bolinha.desconectado { background: var(--erro); }
+  main { flex: 1; min-height: 0; display: flex; }
+  .aba { display: none; flex: 1; min-height: 0; }
+  .aba.ativa { display: flex; }
+
+  /* Conversas */
+  .lista { width: 340px; flex: none; background: var(--painel); border-right: 1px solid var(--linha); display: flex; flex-direction: column; min-height: 0; }
+  .lista .busca { padding: 12px; border-bottom: 1px solid var(--linha); }
+  .lista input { width: 100%; padding: 9px 12px; border: 1px solid var(--linha); border-radius: 8px; background: var(--fundo); outline: none; }
+  .lista input:focus { border-color: var(--verde); }
+  .itens { overflow-y: auto; flex: 1; }
+  .item { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 11px 14px; border-bottom: 1px solid var(--linha); cursor: pointer; }
+  .item:hover { background: var(--fundo); }
+  .item.ativo { background: var(--verde-claro); }
+  .item .nome { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .hora { font-size: 12px; color: var(--suave); }
+  .item .ultima { color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+  .item .marcas { display: flex; gap: 4px; align-items: center; }
+  .etiqueta { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px; background: var(--alerta-claro); color: var(--alerta); white-space: nowrap; }
+  .etiqueta.bot { background: var(--verde-claro); color: var(--verde); }
+  .naolidas { background: var(--verde); color: #fff; font-size: 11px; font-weight: 700; min-width: 19px; height: 19px; border-radius: 99px; display: inline-grid; place-items: center; padding: 0 5px; }
+  .conversa { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topo-conversa { display: flex; align-items: center; gap: 12px; padding: 12px 18px; background: var(--painel); border-bottom: 1px solid var(--linha); min-height: 60px; }
+  .topo-conversa .quem { min-width: 0; }
+  .topo-conversa .quem b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topo-conversa .quem span { font-size: 12px; color: var(--suave); }
+  .topo-conversa .acoes { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .botao { border: 1px solid var(--linha); background: var(--painel); padding: 7px 13px; border-radius: 8px; cursor: pointer; font-weight: 550; white-space: nowrap; }
+  .botao:hover { border-color: var(--suave); }
+  .botao.principal { background: var(--verde); border-color: var(--verde); color: #fff; }
+  .botao.principal:hover { filter: brightness(1.07); }
+  .botao:disabled { opacity: .5; cursor: default; }
+  .mensagens { flex: 1; overflow-y: auto; padding: 18px 8%; display: flex; flex-direction: column; gap: 6px; }
+  .balao { max-width: 70%; padding: 7px 11px 5px; border-radius: 9px; background: var(--balao); box-shadow: var(--sombra); white-space: pre-wrap; word-wrap: break-word; align-self: flex-start; }
+  .balao.mim { background: var(--balao-mim); align-self: flex-end; }
+  .balao .meta { display: block; text-align: right; font-size: 11px; color: var(--suave); margin-top: 2px; }
+  .balao .midia { color: var(--suave); font-style: italic; }
+  .dia-sep { align-self: center; font-size: 12px; color: var(--suave); background: var(--painel); padding: 3px 10px; border-radius: 6px; margin: 8px 0; box-shadow: var(--sombra); }
+  .escrever { display: flex; gap: 10px; padding: 12px 18px; background: var(--painel); border-top: 1px solid var(--linha); }
+  .escrever textarea { flex: 1; resize: none; border: 1px solid var(--linha); border-radius: 8px; padding: 9px 12px; background: var(--fundo); min-height: 40px; max-height: 140px; outline: none; }
+  .escrever textarea:focus { border-color: var(--verde); }
+  .aviso-envio { font-size: 12px; color: var(--suave); padding: 0 18px 10px; background: var(--painel); }
+  .vazio { margin: auto; text-align: center; color: var(--suave); max-width: 320px; }
+  .vazio b { display: block; color: var(--texto); font-size: 15px; margin-bottom: 4px; }
+
+  /* Páginas com rolagem */
+  .pagina { flex: 1; overflow-y: auto; padding: 24px; }
+  .conteudo { max-width: 1080px; margin: 0 auto; }
+  .pagina h2 { font-size: 18px; margin: 0 0 4px; letter-spacing: -.01em; }
+  .sub { color: var(--suave); margin: 0 0 20px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .card { background: var(--painel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 14px 16px; }
+  .card .rot { font-size: 12px; color: var(--suave); }
+  .card .num { font-size: 26px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .bloco { background: var(--painel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 16px; margin-bottom: 20px; }
+  .bloco h3 { font-size: 14px; margin: 0 0 12px; }
+  .grafico { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
+  .grafico .barra { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
+  .grafico .barra i { display: block; width: 100%; max-width: 26px; background: var(--verde); border-radius: 4px 4px 0 0; min-height: 2px; opacity: .85; }
+  .grafico .barra span { font-size: 10px; color: var(--suave); }
+  .log { font: 12px/1.55 ui-monospace, Consolas, monospace; background: var(--fundo); border-radius: 8px; padding: 10px 12px; height: 320px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+  .log .l-bot { color: var(--verde); }
+  .log .l-tec { color: var(--azul); }
+  .log .l-err { color: var(--erro); }
+
+  /* Configurações */
+  .campo { display: grid; grid-template-columns: 280px 1fr; gap: 6px 20px; padding: 14px 0; border-bottom: 1px solid var(--linha); }
+  .campo:last-of-type { border-bottom: 0; }
+  .campo label { font-weight: 600; }
+  .campo small { color: var(--suave); display: block; font-weight: 400; margin-top: 2px; }
+  .campo input, .campo textarea { width: 100%; padding: 8px 11px; border: 1px solid var(--linha); border-radius: 8px; background: var(--fundo); outline: none; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  .campo textarea { min-height: 84px; resize: vertical; }
+  .campo input:focus, .campo textarea:focus { border-color: var(--verde); }
+  .barra-acoes { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
+  .msg { font-size: 13px; color: var(--suave); }
+  .msg.ok { color: var(--verde); }
+  .msg.erro { color: var(--erro); }
+
+  /* WhatsApp */
+  .zap { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+  .qr { width: 300px; height: 300px; background: #fff; border-radius: var(--raio); display: grid; place-items: center; border: 1px solid var(--linha); }
+  .qr img { width: 280px; height: 280px; }
+  .passos { margin: 0; padding-left: 20px; line-height: 1.9; }
+  .grande { font-size: 20px; font-weight: 650; display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+
+  @media (max-width: 760px) {
+    header { padding: 0 12px; gap: 8px; } header h1 { display: none; } nav { margin-left: 0; } nav button { padding: 8px 9px; }
+    .lista { width: 100%; } .conversa { display: none; } .tem-conversa .lista { display: none; } .tem-conversa .conversa { display: flex; }
+    .campo { grid-template-columns: 1fr; } .mensagens { padding: 14px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel do bot</h1>
+  <nav>
+    <button data-aba="conversas" class="ativo">Conversas</button>
+    <button data-aba="dia">Painel do dia</button>
+    <button data-aba="config">Configurações</button>
+    <button data-aba="zap">WhatsApp</button>
+  </nav>
+  <div class="status"><span class="bolinha" id="bolinha"></span><span id="status-txt">Conectando…</span></div>
+</header>
+
+<main>
+  <!-- Conversas -->
+  <section class="aba ativa" id="aba-conversas">
+    <div class="lista">
+      <div class="busca"><input id="busca" placeholder="Buscar nome ou número" autocomplete="off"></div>
+      <div class="itens" id="itens"></div>
+    </div>
+    <div class="conversa" id="conversa">
+      <div class="vazio"><b>Escolha uma conversa</b>As conversas do WhatsApp do bot aparecem à esquerda, das mais recentes para as mais antigas.</div>
+    </div>
+  </section>
+
+  <!-- Painel do dia -->
+  <section class="aba" id="aba-dia">
+    <div class="pagina"><div class="conteudo">
+      <h2>Hoje</h2>
+      <p class="sub" id="dia-sub">Contado no log de hoje do bot.</p>
+      <div class="cards" id="cards"></div>
+      <div class="bloco"><h3>Conversas novas por hora</h3><div class="grafico" id="grafico"></div></div>
+      <div class="bloco"><h3>Log ao vivo</h3><div class="log" id="log"></div></div>
+    </div></div>
+  </section>
+
+  <!-- Configurações -->
+  <section class="aba" id="aba-config">
+    <div class="pagina"><div class="conteudo">
+      <h2>Configurações</h2>
+      <p class="sub">Ficam no arquivo <code>.env</code> do bot (o anterior é guardado em <code>.env.bak</code>). Valem depois de reiniciar o bot.</p>
+      <div class="bloco" id="campos"></div>
+      <div class="barra-acoes">
+        <button class="botao principal" id="salvar">Salvar</button>
+        <button class="botao" id="reiniciar">Reiniciar o bot</button>
+        <span class="msg" id="config-msg"></span>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- WhatsApp -->
+  <section class="aba" id="aba-zap">
+    <div class="pagina"><div class="conteudo">
+      <h2>Conexão com o WhatsApp</h2>
+      <p class="sub">O bot usa o WhatsApp Web, conectado por QR code.</p>
+      <div class="bloco zap">
+        <div class="qr" id="qr"><span class="msg">Sem QR no momento</span></div>
+        <div>
+          <div class="grande"><span class="bolinha" id="bolinha2"></span><span id="zap-estado">…</span></div>
+          <p class="msg" id="zap-detalhe"></p>
+          <ol class="passos" id="zap-passos">
+            <li>No celular da empresa, abra o WhatsApp.</li>
+            <li>Toque em <b>Aparelhos conectados</b> &gt; <b>Conectar um aparelho</b>.</li>
+            <li>Aponte a câmera para o QR code ao lado.</li>
+          </ol>
+        </div>
+      </div>
+    </div></div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const api = async (rota, dados) => {
+  const op = dados ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Painel': '1' }, body: JSON.stringify(dados) } : {};
+  const r = await fetch(rota, op);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.erro || `erro ${r.status}`);
+  return j;
+};
+const fone = (n) => {
+  n = String(n || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+  if (n.length === 11) return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
+  if (n.length === 10) return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
+  return n;
+};
+const hora = (ts) => {
+  if (!ts) return '';
+  const d = new Date(ts * 1000);
+  const hoje = new Date().toDateString() === d.toDateString();
+  return hoje ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+};
+const TIPOS = { image: '📷 Foto', audio: '🎤 Áudio', ptt: '🎤 Áudio', video: '🎬 Vídeo', document: '📄 Documento', sticker: '🙂 Figurinha', location: '📍 Localização', vcard: '👤 Contato', poll_creation: '📊 Enquete' };
+
+// ---------- Abas ----------
+let abaAtual = 'conversas';
+document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => abrirAba(b.dataset.aba)));
+function abrirAba(nome) {
+  abaAtual = nome;
+  document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === nome));
+  document.querySelectorAll('.aba').forEach((a) => a.classList.toggle('ativa', a.id === `aba-${nome}`));
+  if (nome === 'dia') carregarDia();
+  if (nome === 'config') carregarConfig();
+  if (nome === 'zap') carregarStatus();
+}
+
+// ---------- Status do WhatsApp ----------
+const NOMES = { conectado: 'Conectado', qr: 'Aguardando leitura do QR code', sincronizando: 'Sincronizando conversas…', iniciando: 'Iniciando…', desconectado: 'Desconectado' };
+async function carregarStatus() {
+  try {
+    const s = await api('/api/status');
+    for (const id of ['#bolinha', '#bolinha2']) $(id).className = `bolinha ${s.estado}`;
+    $('#status-txt').textContent = s.estado === 'conectado' ? `Conectado${s.numero ? ` · ${fone(s.numero)}` : ''}` : NOMES[s.estado] || s.estado;
+    $('#zap-estado').textContent = NOMES[s.estado] || s.estado;
+    $('#zap-detalhe').textContent = s.estado === 'conectado'
+      ? `Número ${fone(s.numero)} conectado desde ${new Date(s.desde).toLocaleString('pt-BR')}.${s.mock ? ' SGP em modo de teste (dados falsos).' : ''}`
+      : s.estado === 'qr' ? 'Leia o QR code com o celular da empresa.' : '';
+    $('#zap-passos').style.display = s.estado === 'qr' ? '' : 'none';
+    $('#qr').innerHTML = s.qr ? `<img alt="QR code do WhatsApp" src="${s.qr}">` : `<span class="msg">${s.estado === 'conectado' ? 'Já conectado ✅' : 'Sem QR no momento'}</span>`;
+    return s;
+  } catch {
+    $('#bolinha').className = 'bolinha desconectado';
+    $('#status-txt').textContent = 'Bot desligado';
+    return null;
+  }
+}
+
+// ---------- Conversas ----------
+let conversas = [];
+let aberta = null;
+async function carregarConversas() {
+  try { conversas = await api('/api/conversas'); } catch { conversas = []; }
+  desenharLista();
+}
+function desenharLista() {
+  const q = $('#busca').value.trim().toLowerCase().replace(/\D/g, '') || $('#busca').value.trim().toLowerCase();
+  const filtradas = conversas.filter((c) => !q || (c.nome || '').toLowerCase().includes(q) || String(c.numero).includes(q));
+  $('#itens').innerHTML = filtradas.length ? filtradas.map((c) => `
+    <div class="item${aberta === c.id ? ' ativo' : ''}" data-id="${esc(c.id)}">
+      <span class="nome">${esc(c.nome || fone(c.numero) || c.id)}</span>
+      <span class="hora">${hora(c.hora)}</span>
+      <span class="ultima">${c.deMim ? '↪ ' : ''}${esc(c.ultima)}</span>
+      <span class="marcas">${c.pausado ? '<span class="etiqueta">com atendente</span>' : ''}${c.naoLidas ? `<span class="naolidas">${c.naoLidas}</span>` : ''}</span>
+    </div>`).join('') : `<div class="vazio" style="padding:30px 16px">${conversas.length ? 'Nada encontrado.' : 'Nenhuma conversa ainda (o WhatsApp precisa estar conectado).'}</div>`;
+  document.querySelectorAll('.item').forEach((el) => el.addEventListener('click', () => abrirConversa(el.dataset.id)));
+}
+$('#busca').addEventListener('input', desenharLista);
+
+async function abrirConversa(id, manterTexto) {
+  aberta = id;
+  document.body.classList.add('tem-conversa');
+  desenharLista();
+  let c;
+  try { c = await api(`/api/conversa?id=${encodeURIComponent(id)}`); } catch (e) {
+    $('#conversa').innerHTML = `<div class="vazio"><b>Não consegui abrir</b>${esc(e.message)}</div>`;
+    return;
+  }
+  if (aberta !== id) return;
+  const rascunho = manterTexto ? ($('#texto') || {}).value || '' : '';
+  let ultimoDia = '';
+  const baloes = c.mensagens.map((m) => {
+    const d = new Date(m.hora * 1000).toLocaleDateString('pt-BR');
+    const sep = d !== ultimoDia ? `<div class="dia-sep">${d === new Date().toLocaleDateString('pt-BR') ? 'Hoje' : d}</div>` : '';
+    ultimoDia = d;
+    const midia = m.tipo !== 'chat' && TIPOS[m.tipo] ? `<span class="midia">${TIPOS[m.tipo]}</span>${m.corpo && m.tipo !== 'ptt' && m.tipo !== 'audio' ? '\n' : ''}` : '';
+    const corpo = m.tipo === 'ptt' || m.tipo === 'audio' || m.tipo === 'sticker' ? '' : esc(m.corpo);
+    return `${sep}<div class="balao${m.deMim ? ' mim' : ''}">${midia}${corpo}<span class="meta">${new Date(m.hora * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}${m.deMim ? (m.ack >= 3 ? ' ✓✓' : m.ack >= 2 ? ' ✓✓' : ' ✓') : ''}</span></div>`;
+  }).join('');
+  $('#conversa').innerHTML = `
+    <div class="topo-conversa">
+      <button class="botao" id="voltar" style="display:none">←</button>
+      <div class="quem"><b>${esc(c.nome || fone(c.numero))}</b><span>${esc(fone(c.numero))} · ${c.pausado ? 'bot pausado (com atendente)' : 'bot atendendo'}</span></div>
+      <div class="acoes">${c.pausado
+        ? '<button class="botao principal" id="religar">Religar o bot</button>'
+        : '<button class="botao" id="pausar">Assumir (pausar o bot)</button>'}</div>
+    </div>
+    <div class="mensagens" id="mensagens">${baloes || '<div class="vazio">Sem mensagens.</div>'}</div>
+    <div class="escrever"><textarea id="texto" rows="1" placeholder="Escreva uma mensagem (Enter envia, Shift+Enter quebra a linha)"></textarea><button class="botao principal" id="enviar">Enviar</button></div>
+    <div class="aviso-envio">Ao responder por aqui, o bot sai dessa conversa, igual quando o atendente responde pelo celular.</div>`;
+  const caixa = $('#mensagens');
+  caixa.scrollTop = caixa.scrollHeight;
+  const t = $('#texto');
+  t.value = rascunho;
+  t.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } });
+  t.addEventListener('input', () => { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 140) + 'px'; });
+  $('#enviar').addEventListener('click', enviar);
+  if ($('#pausar')) $('#pausar').addEventListener('click', async () => { await api('/api/pausar', { id }); abrirConversa(id, true); carregarConversas(); });
+  if ($('#religar')) $('#religar').addEventListener('click', async () => { await api('/api/religar', { id }); abrirConversa(id, true); carregarConversas(); });
+  if (matchMedia('(max-width: 760px)').matches) {
+    $('#voltar').style.display = '';
+    $('#voltar').addEventListener('click', () => { document.body.classList.remove('tem-conversa'); aberta = null; desenharLista(); });
+  }
+  if (!manterTexto) t.focus();
+}
+async function enviar() {
+  const t = $('#texto');
+  const texto = t.value.trim();
+  if (!texto || !aberta) return;
+  $('#enviar').disabled = true;
+  try {
+    await api('/api/enviar', { id: aberta, texto });
+    t.value = '';
+    setTimeout(() => abrirConversa(aberta), 700);
+  } catch (e) {
+    alertaEnvio(`Não enviou: ${e.message}`);
+  } finally { $('#enviar').disabled = false; }
+}
+function alertaEnvio(msg) { const a = document.querySelector('.aviso-envio'); if (a) { a.textContent = msg; a.style.color = 'var(--erro)'; } }
+
+// ---------- Painel do dia ----------
+function classeLog(l) {
+  if (/\[bot →\]/.test(l)) return 'l-bot';
+  if (/\[técnico\]|\[caixa\]|\[cadastro\]|\[painel\]/.test(l)) return 'l-tec';
+  if (/erro|falhou|não consegui|⚠️/i.test(l)) return 'l-err';
+  return '';
+}
+function linhaLog(l) { return `<div class="${classeLog(l)}">${esc(l.slice(11))}</div>`; }
+async function carregarDia() {
+  const d = await api('/api/dia').catch(() => null);
+  if (!d) return;
+  $('#dia-sub').textContent = `${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} · contado no log de hoje do bot`;
+  $('#cards').innerHTML = d.metricas.map((m) => `<div class="card"><div class="rot">${esc(m.rotulo)}</div><div class="num">${m.valor}</div></div>`).join('');
+  const max = Math.max(1, ...d.porHora);
+  $('#grafico').innerHTML = d.porHora.map((v, h) => `<div class="barra" title="${h}h: ${v} conversa(s)"><i style="height:${(v / max) * 100}%"></i><span>${h % 3 === 0 ? h + 'h' : ''}</span></div>`).join('');
+  const log = $('#log');
+  log.innerHTML = d.log.map(linhaLog).join('');
+  log.scrollTop = log.scrollHeight;
+}
+
+// ---------- Configurações ----------
+async function carregarConfig() {
+  const campos = await api('/api/config').catch(() => []);
+  $('#campos').innerHTML = campos.map((c) => {
+    const valor = c.lista ? String(c.valor || '').split(c.separador || ',').filter(Boolean).join('\n') : c.valor;
+    const entrada = c.lista
+      ? `<textarea data-chave="${c.chave}" data-sep="${esc(c.separador || ',')}" spellcheck="false">${esc(valor)}</textarea>`
+      : `<input data-chave="${c.chave}" value="${esc(valor)}" spellcheck="false">`;
+    return `<div class="campo"><label>${esc(c.rotulo)}<small>${esc(c.ajuda)}${c.lista ? ' (um por linha)' : ''}</small></label><div>${entrada}</div></div>`;
+  }).join('');
+}
+$('#salvar').addEventListener('click', async () => {
+  const dados = {};
+  document.querySelectorAll('#campos [data-chave]').forEach((el) => {
+    dados[el.dataset.chave] = el.tagName === 'TEXTAREA' ? el.value.split('\n').map((x) => x.trim()).filter(Boolean).join(el.dataset.sep) : el.value.trim();
+  });
+  try {
+    await api('/api/config', dados);
+    $('#config-msg').className = 'msg ok';
+    $('#config-msg').textContent = 'Salvo ✅ Clique em "Reiniciar o bot" para valer.';
+  } catch (e) {
+    $('#config-msg').className = 'msg erro';
+    $('#config-msg').textContent = `Não salvou: ${e.message}`;
+  }
+});
+$('#reiniciar').addEventListener('click', async () => {
+  if (!confirm('Reiniciar o bot agora? Ele volta sozinho em uns 30 segundos.')) return;
+  await api('/api/reiniciar', {}).catch(() => {});
+  $('#config-msg').className = 'msg';
+  $('#config-msg').textContent = 'Reiniciando… a página volta sozinha quando o bot ligar.';
+});
+
+// ---------- Ao vivo ----------
+let recarregarLista = null;
+function conectarEventos() {
+  const ev = new EventSource('/api/eventos');
+  ev.addEventListener('status', () => { carregarStatus(); carregarConversas(); });
+  ev.addEventListener('mensagem', (e) => {
+    const { chat } = JSON.parse(e.data);
+    clearTimeout(recarregarLista);
+    recarregarLista = setTimeout(carregarConversas, 600);
+    if (chat && chat === aberta) setTimeout(() => abrirConversa(aberta, true), 400);
+  });
+  ev.addEventListener('log', (e) => {
+    if (abaAtual !== 'dia') return;
+    const log = $('#log');
+    const noFim = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
+    log.insertAdjacentHTML('beforeend', linhaLog(JSON.parse(e.data)));
+    if (noFim) log.scrollTop = log.scrollHeight;
+  });
+  ev.onopen = () => { carregarStatus(); carregarConversas(); };
+}
+
+carregarStatus();
+carregarConversas();
+conectarEventos();
+setInterval(carregarStatus, 15000);
+setInterval(() => { if (abaAtual === 'dia') carregarDia(); }, 60000);
+</script>
+</body>
+</html>
