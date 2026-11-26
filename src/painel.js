@@ -61,7 +61,7 @@ const METRICAS = [
   { chave: 'atendente', rotulo: 'Passadas para atendente', re: /\[atendente\].*passou para o atendente|\[atendente assumiu\]/ },
   { chave: 'ocorrencias', rotulo: 'Ocorrências de técnicos', re: /\[técnico\].*abriu ocorrência/ },
   { chave: 'caixa', rotulo: 'Fechamentos de caixa', re: /\[caixa\].*\d+ pagamento\(s\), R\$/ },
-  { chave: 'audios', rotulo: 'Áudios transcritos', re: /\[áudio\] [^:]+: "/ },
+  { chave: 'audios', rotulo: 'Áudios transcritos', re: /\[áudio\] [^:]+: (?!baixando|download|erro|mensagem sem)/ },
 ];
 function painelDoDia() {
   let linhas = [];
