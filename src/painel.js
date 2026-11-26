@@ -276,7 +276,7 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       doc: busca || lembrado.doc || '',
       contrato: escolhido,
       outros: contratos.filter((c) => c !== escolhido).map((c) => ({ id: c.id, status: c.status, endereco: c.endereco })),
-      faturas: faturas.slice(0, 6).map((f) => ({ vencimento: f.vencimento, valor: f.valor, link: f.link, pix: f.pix, linha: f.linha })),
+      faturas: faturas.slice(0, 100).map((f) => ({ vencimento: f.vencimento, valor: f.valor, link: f.link, pix: f.pix, linha: f.linha })),
       online,
     };
   }
