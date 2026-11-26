@@ -13,6 +13,10 @@ const { criarFluxo } = require('./fluxo');
 const { criarEstado } = require('./estado');
 const { registrar, resumo } = require('./log');
 const estado = criarEstado();
+const sgp = require('./sgp');
+// Fila de atendimento humano, etiquetas, notas, respostas rápidas e agendadas (usado pelo painel)
+let painel = null;
+const atendimento = require('./atendimento').criarAtendimento({ aoMudar: (ev) => { if (painel) painel.emitir('fila', ev); } });
 const audio = cfg.audio.ativo ? require('./audio') : null;
 const ocr = require('./ocr');
 
@@ -260,6 +264,7 @@ const fluxo = criarFluxo({
     await client.sendMessage(destino, texto);
   },
   aoTransferir: async (chatId) => {
+    atendimento.abrir(chatId, { motivo: 'pediu atendente', numero: await numeroReal(chatId).catch(() => '') });
     const chat = await client.getChatById(chatId).catch(() => null);
     if (chat && chat.markUnread) await chat.markUnread().catch(() => {});
   },
@@ -331,7 +336,26 @@ function contem(lista, numero) {
 // ---------- Painel no navegador (http://localhost:3210) ----------
 const conexao = { estado: 'iniciando', qr: '', desde: Date.now() };
 const mudarConexao = (estado, qr = '') => { conexao.estado = estado; conexao.qr = qr; conexao.desde = Date.now(); if (painel) painel.emitir('status', { estado }); };
-const painel = require('./painel').iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat: numeroReal });
+painel = require('./painel').iniciarPainel({
+  client, fluxo, cfg, registrar, conexao, numeroDeChat: numeroReal, atendimento, sgp, estado, MessageMedia,
+  enviarComoBot: enviar, // mensagens automáticas (encerramento, agendadas) não tiram o bot da conversa
+});
+// Histórico para a busca do painel: o que chega e o que sai (bot e atendentes)
+client.on('message', (m) => {
+  if (m.fromMe || m.isStatus || String(m.from).endsWith('@g.us')) return;
+  atendimento.registrarMensagem(m.from, { deMim: false, texto: m.body, tipo: m.type, hora: m.timestamp, id: m.id && m.id._serialized });
+  atendimento.clienteFalou(m.from);
+});
+client.on('message_create', (m) => {
+  if (!m.fromMe || String(m.to).endsWith('@g.us') || m.type === 'poll_creation') return;
+  atendimento.registrarMensagem(m.to, { deMim: true, texto: m.body, tipo: m.type, hora: m.timestamp, id: m.id && m.id._serialized });
+});
+// Mensagens agendadas (a cada 30s) e atendimentos cujo bot já voltou (pausa venceu ou #bot)
+setInterval(() => {
+  if (conexao.estado !== 'conectado') return;
+  atendimento.processarAgendadas((id, texto) => enviar(id, texto)).catch((e) => registrar(`[agendada] erro: ${e.message}`));
+  for (const t of atendimento.fila()) if (!fluxo.estaPausado(t.chatId)) atendimento.encerrar(t.chatId, 'bot voltou');
+}, 30000);
 
 // ---------- Eventos ----------
 client.on('qr', async (qr) => {
@@ -575,6 +599,7 @@ client.on('message_create', async (msg) => {
   const comando = u.normalizar(msg.body);
   if (comando === '#bot') {
     fluxo.retomar(chatId);
+    atendimento.encerrar(chatId, '#bot');
     await msg.delete(true).catch(() => {}); // apaga o comando da conversa do cliente
     console.log(`[bot religado] ${numeroDe(chatId)}`);
     return;
@@ -582,6 +607,7 @@ client.on('message_create', async (msg) => {
   // Atendente encerrou: o bot volta a atender esse cliente na próxima mensagem dele
   if (u.ehEncerramento(msg.body)) {
     fluxo.retomar(chatId);
+    atendimento.encerrar(chatId, 'atendente encerrou');
     encerradoEm.set(chatId, Date.now());
     if (comando.startsWith('#')) await msg.delete(true).catch(() => {});
     registrar(`[atendimento encerrado] ${numeroDe(chatId)} - bot religado para esse cliente (mensagem: "${resumo(ocultarDocs(msg.body), 80)}")`);
@@ -589,6 +615,7 @@ client.on('message_create', async (msg) => {
   }
   if (comando === '#pausa') {
     fluxo.pausar(chatId);
+    atendimento.assumir(chatId, { numero: await numeroReal(chatId).catch(() => '') });
     await msg.delete(true).catch(() => {});
     console.log(`[bot pausado] ${numeroDe(chatId)}`);
     return;
@@ -600,6 +627,7 @@ client.on('message_create', async (msg) => {
   encerradoEm.delete(chatId);
 
   // Atendente respondeu manualmente: o bot sai de cena nessa conversa
+  atendimento.respondeu(chatId, { numero: await numeroReal(chatId).catch(() => '') });
   if (!fluxo.estaPausado(chatId)) {
     fluxo.pausar(chatId);
     registrar(`[atendente assumiu] ${numeroDe(chatId)} - bot pausado por ${cfg.pausaHumanoHoras}h`);
