@@ -253,7 +253,7 @@ const fluxo = criarFluxo({
   // Resumo da ocorrência (suporte) ou do interessado (venda) para a equipe
   aoOcorrencia: async (chatId, resumo, tipo) => {
     const numero = tipo === 'venda' ? cfg.numeroComercial || cfg.numeroEquipe : cfg.numeroEquipe;
-    if (!numero) return;
+    if (!numero) return registrar(`[aviso] ${tipo || 'equipe'}: NUMERO_EQUIPE vazio no .env, aviso não enviado`);
     const destino = `${numero}@c.us`;
     const texto = `${resumo}\nWhatsApp do cliente: ${numeroDe(chatId)}`;
     enviandoAgora.set(chave(destino, texto), (enviandoAgora.get(chave(destino, texto)) || 0) + 1);

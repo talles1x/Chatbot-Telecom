@@ -1301,7 +1301,7 @@ function criarFluxo({
     await aoOcorrencia(chatId, [titulo, resumo, resultado && !resultado.ok && resultado.mensagem ? `Motivo: ${resultado.mensagem}` : '', `Enviado por: ${numero || chatId}`]
       .filter(Boolean).join('\n'), 'precadastro').catch((e) => log(`[erro ao avisar equipe] ${e.message}`));
 
-    if (!resultado) await enviar(chatId, `Ficha recebida e equipe avisada! ✅\n\n${resumo}`);
+    if (!resultado) await enviar(chatId, `${cfg.numeroEquipe ? 'Ficha recebida e equipe avisada! ✅' : 'Ficha registrada ✅ (ainda não há número da equipe configurado para receber o aviso)'}\n\n${resumo}`);
     else if (resultado.ok) await enviar(chatId, `Cliente cadastrado no SGP! ✅${resultado.id ? `\nPré-cadastro nº *${resultado.id}*` : ''}\n\n${resumo}`);
     else await enviar(chatId, `Não consegui cadastrar no SGP 😕${resultado.mensagem ? `\nMotivo: ${resultado.mensagem}` : ''}\n\nJá avisei a equipe para cadastrar manualmente.`);
     return menuEquipe(chatId, 'Precisa de mais alguma coisa? 👇');
