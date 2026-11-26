@@ -51,6 +51,59 @@ const MSG = {
     'que alguém da equipe vai te responder assim que possível. Por favor, aguarde. 🙏',
 };
 
+// ---------- Textos editáveis pelo painel ----------
+// Ficam em dados/textos.json. {empresa} e {horario} viram o nome da empresa e o horário de atendimento.
+const fs = require('fs');
+const path = require('path');
+const ARQ_TEXTOS = path.join(__dirname, '..', 'dados', 'textos.json');
+const NOMES_TEXTOS = {
+  saudacao: 'Saudação (primeira mensagem)',
+  docInvalido: 'CPF inválido',
+  naoEncontrado: 'CPF não encontrado no SGP',
+  semBoleto: 'Cliente sem boleto em aberto',
+  erroSistema: 'SGP fora do ar',
+  atendenteDentro: 'Passou para o atendente (dentro do horário)',
+  atendenteFora: 'Passou para o atendente (fora do horário)',
+  comprovanteDentro: 'Recebeu comprovante (dentro do horário)',
+  comprovanteFora: 'Recebeu comprovante (fora do horário)',
+  imagemDentro: 'Recebeu outra imagem (dentro do horário)',
+  imagemFora: 'Recebeu outra imagem (fora do horário)',
+};
+const MSG_PADRAO = { ...MSG };
+const preencher = (t) => String(t).replace(/\{empresa\}/g, cfg.empresa).replace(/\{horario\}/g, cfg.horario.texto);
+// Texto padrão de cada mensagem editável (as funções viram texto com {empresa}/{horario})
+function textoPadrao(chave) {
+  const v = MSG_PADRAO[chave];
+  if (typeof v === 'string') return v;
+  return v().split(cfg.horario.texto).join('{horario}').split(cfg.empresa).join('{empresa}');
+}
+function aplicarTextos() {
+  let salvos = {};
+  try { salvos = JSON.parse(fs.readFileSync(ARQ_TEXTOS, 'utf-8')); } catch {}
+  for (const chave of Object.keys(NOMES_TEXTOS)) {
+    const novo = typeof salvos[chave] === 'string' && salvos[chave].trim() ? salvos[chave] : null;
+    if (!novo) MSG[chave] = MSG_PADRAO[chave];
+    else MSG[chave] = typeof MSG_PADRAO[chave] === 'string' ? preencher(novo) : () => preencher(novo);
+  }
+}
+function listarTextos() {
+  let salvos = {};
+  try { salvos = JSON.parse(fs.readFileSync(ARQ_TEXTOS, 'utf-8')); } catch {}
+  return Object.entries(NOMES_TEXTOS).map(([chave, nome]) => ({ chave, nome, padrao: textoPadrao(chave), valor: salvos[chave] || '' }));
+}
+// Vale na hora, sem reiniciar o bot
+function salvarTextos(novos) {
+  const limpo = {};
+  for (const chave of Object.keys(NOMES_TEXTOS)) {
+    const v = String((novos || {})[chave] || '').trim();
+    if (v && v !== textoPadrao(chave)) limpo[chave] = v.slice(0, 2000);
+  }
+  fs.mkdirSync(path.dirname(ARQ_TEXTOS), { recursive: true });
+  fs.writeFileSync(ARQ_TEXTOS, JSON.stringify(limpo, null, 2));
+  aplicarTextos();
+}
+aplicarTextos();
+
 // Legenda de imagem: propaganda (ignorada) e pagamento (vira comprovante)
 const RE_PROPAGANDA = /\b(black friday|promocao|promo|mega promo|desconto|oferta|ofertas|aproveite|cupom|liquidacao|frete gratis|so hoje|compre)\b|\d+ ?% ?(off|de desconto)/;
 const RE_PAGAMENTO = /\b(comprovante|paguei|pago|paga|pagamento|pix|transferencia|transferi|deposito|boleto|fatura|mensalidade)\b/;
@@ -2038,4 +2091,4 @@ function capitalizar(p) {
   return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
 }
 
-module.exports = { criarFluxo, OP };
+module.exports = { criarFluxo, OP, listarTextos, salvarTextos };
