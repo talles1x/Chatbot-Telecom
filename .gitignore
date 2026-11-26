@@ -9,3 +9,4 @@ logs/
 midia/
 _to_delete/
 *.log
+vendor

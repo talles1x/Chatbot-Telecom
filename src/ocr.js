@@ -17,6 +17,23 @@ async function iniciar() {
   return createWorker('por', 1, { langPath, cachePath, gzip: true });
 }
 
+// Foto pequena (print reenviado, foto comprimida pelo WhatsApp) é ampliada e passada para tons de cinza:
+// com letras miúdas a leitura falha, ampliada 2-3x ela sai certa
+async function ampliar(buffer, log) {
+  try {
+    let Jimp;
+    try { Jimp = require('jimp'); } catch { Jimp = require(path.join(__dirname, '..', 'vendor', 'node_modules', 'jimp')); }
+    const img = await Jimp.read(buffer);
+    const largura = img.bitmap.width;
+    if (largura < 1400) img.scale(Math.min(3, 2400 / largura), Jimp.RESIZE_BICUBIC);
+    img.greyscale();
+    return await img.getBufferAsync(Jimp.MIME_PNG);
+  } catch (e) {
+    if (!/Cannot find module/.test(e.message)) log(`[imagem] não consegui ampliar a imagem (${e.message}), lendo do jeito que veio`);
+    return buffer;
+  }
+}
+
 // Texto da imagem (Buffer) ou null se o OCR não estiver instalado / falhar
 async function lerTexto(buffer, log = console.log) {
   try {
@@ -24,7 +41,7 @@ async function lerTexto(buffer, log = console.log) {
       carregando = carregando || iniciar();
       worker = await carregando;
     }
-    const r = await worker.recognize(buffer);
+    const r = await worker.recognize(await ampliar(buffer, log));
     return (r && r.data && r.data.text) || '';
   } catch (e) {
     carregando = null;
