@@ -4,6 +4,12 @@
 // Correções na biblioteca do WhatsApp: precisam rodar antes de carregá-la
 require('./correcoes').aplicar((m) => require('./log').registrar(m));
 const path = require('path');
+// Só um bot por vez: fecha o bot antigo que tenha ficado rodando escondido (e o Chrome preso dele)
+require('./instancia').garantirUnica({
+  porta: (require('./config'), /^(0|false|nao|não)$/i.test(process.env.PAINEL || '')) ? null : Number(process.env.PAINEL_PORTA) || 3210,
+  pastaSessao: path.join(__dirname, '..', '.sessao'),
+  log: (m) => { console.log(m); require('./log').registrar(m); },
+});
 const qrcodeTerminal = require('qrcode-terminal');
 const QRCode = require('qrcode');
 const { Client, LocalAuth, Poll, MessageMedia } = require('whatsapp-web.js');

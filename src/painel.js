@@ -324,8 +324,12 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       if (rota === 'POST /api/reiniciar') {
         registrar('[painel] reiniciando o bot pelo painel');
         responder(res, 200, { ok: true });
-        // O iniciar.bat liga o bot de novo sozinho
-        setTimeout(() => process.exit(0), 800);
+        // Fecha o Chrome do WhatsApp direitinho e sai; o iniciar.bat liga o bot de novo sozinho
+        setTimeout(() => {
+          Promise.race([Promise.resolve().then(() => client.destroy()), new Promise((r) => setTimeout(r, 6000))])
+            .catch(() => {})
+            .finally(() => process.exit(0));
+        }, 500);
         return undefined;
       }
       return responder(res, 404, { erro: 'não encontrado' });
@@ -333,7 +337,12 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       return responder(res, 500, { erro: e.message });
     }
   });
+  let tentouLiberar = false;
   servidor.on('error', (e) => {
+    if (e.code === 'EADDRINUSE' && !tentouLiberar) {
+      tentouLiberar = true;
+      if (require('./instancia').liberarPorta(porta, registrar)) { servidor.listen(porta, '127.0.0.1'); return; }
+    }
     if (e.code === 'EADDRINUSE') {
       registrar(`[painel] a porta ${porta} já está em uso: provavelmente OUTRO BOT já está aberto`);
       console.error(`\n⚠️  Parece que já tem outro bot aberto (o painel dele está usando a porta ${porta}).`);
