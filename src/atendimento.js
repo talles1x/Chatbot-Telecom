@@ -233,11 +233,13 @@ function criarAtendimento({ aoMudar = () => {} } = {}) {
   }
 
   // ---------- Relatórios ----------
-  function relatorio(dias = 7) {
+  function relatorio(dias = 7, atendente = '') {
     const fuso = { timeZone: 'America/Fortaleza' };
     const diaDe = (ms) => new Date(ms).toLocaleDateString('sv-SE', fuso);
     const desde = Date.now() - dias * 86400000;
-    const lista = dados.encerrados.filter((t) => t.encerradoEm >= desde);
+    const todosPeriodo = dados.encerrados.filter((t) => t.encerradoEm >= desde);
+    const atendentesPeriodo = [...new Set(todosPeriodo.map((t) => t.atendente).filter(Boolean))].sort();
+    const lista = atendente ? todosPeriodo.filter((t) => (atendente === '-' ? !t.atendente : t.atendente === atendente)) : todosPeriodo;
     const media = (vals) => (vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length / 60000) : null);
     const porDia = {};
     for (let i = dias - 1; i >= 0; i--) porDia[diaDe(Date.now() - i * 86400000)] = { atendimentos: 0, primeira: [], total: [] };
@@ -266,6 +268,13 @@ function criarAtendimento({ aoMudar = () => {} } = {}) {
       porAtendente: Object.entries(porAtendente).sort((a, b) => b[1] - a[1]).map(([nome, n]) => ({ nome, n })),
       porMotivo: Object.entries(porMotivo).sort((a, b) => b[1] - a[1]).map(([nome, n]) => ({ nome, n })),
       abertosAgora: Object.keys(dados.tickets).length,
+      atendentes: atendentesPeriodo,
+      // Lista dos atendimentos encerrados (mais recentes primeiro)
+      atendimentos: lista.slice(-500).reverse().map((t) => ({
+        protocolo: t.protocolo, chatId: t.chatId, nome: t.nome || (dados.nomesSgp || {})[t.chatId] || '', numero: t.numero || '',
+        atendente: t.atendente || '', motivo: t.motivo || '', como: t.como || '', etiquetas: t.etiquetas || [],
+        abertoEm: t.abertoEm, primeiraRespostaEm: t.primeiraRespostaEm, encerradoEm: t.encerradoEm,
+      })),
     };
   }
 

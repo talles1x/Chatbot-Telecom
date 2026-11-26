@@ -2147,4 +2147,4 @@ function capitalizar(p) {
   return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
 }
 
-module.exports = { criarFluxo, OP, listarTextos, salvarTextos };
+module.exports = { criarFluxo, OP, listarTextos, salvarTextos, nomeBonito };
