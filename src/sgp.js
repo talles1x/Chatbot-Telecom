@@ -89,12 +89,28 @@ function lerContratos(r) {
     referencia: extrairReferencia(c),
     // Só para conferir se o WhatsApp é do titular (nunca é mostrado ao cliente nem vai para o log)
     telefones: extrairTelefones(c),
+    ip: extrairIp(c),
     plano: textoPlano(primeiro(c, ['planointernet', 'plano', 'servico_plano', 'servico.plano', 'planoDescricao']) ||
       (c.servicos && c.servicos[0] && (c.servicos[0].plano || c.servicos[0].planointernet))),
   })).filter((c) => c.id !== undefined).map((c, i) => {
     avisarSemEndereco(c, lista[i]);
     return c;
   });
+}
+
+// IP da conexão do cliente (no serviço; ignora VoIP e IP de equipamento da rede)
+function extrairIp(c) {
+  const ipv4 = /^(\d{1,3}\.){3}\d{1,3}$/;
+  const campos = achatar(c).filter(([k, v]) => ipv4.test(String(v).trim()) && /(^|[._])(ip|ipv4|ip_address|endereco_ip|servico_ip)$/.test(k) && !/voip|gateway|nas|olt|mascara|dns/.test(k));
+  const doServico = campos.find(([k]) => /servico/.test(k) && !/onu|cpe/.test(k)) || campos.find(([k]) => !/onu|cpe/.test(k)) || campos[0];
+  return doServico ? String(doServico[1]).trim() : '';
+}
+
+function ehAcordo(t) {
+  const a = t && (t.acordoPagamento || t.acordo_pagamento || t.acordo);
+  if (!a) return /acordo/i.test(String((t && (t.demonstrativo || t.descricao)) || ''));
+  if (typeof a === 'object') return Object.values(a).some((v) => (Array.isArray(v) ? v.length > 0 : Boolean(v)));
+  return Boolean(a);
 }
 
 // ---------- Endereço e ponto de referência ----------
@@ -205,6 +221,8 @@ async function titulosAbertos(cpfcnpj, contrato) {
       linha: primeiro(t, ['linhaDigitavel', 'linha_digitavel', 'codigoBarras', 'codigo_barras']),
       link: primeiro(t, ['link', 'link_boleto', 'linkBoleto', 'url', 'boleto']),
       pix: primeiro(t, ['codigoPix', 'pix_copia_cola', 'pixCopiaECola', 'pix', 'qrcode_pix']),
+      // Parcela de acordo de pagamento (o SGP manda acordoPagamento com as faturas acordadas/cobradas)
+      acordo: ehAcordo(t),
       status: String(primeiro(t, ['status', 'situacao']) || '').toLowerCase(),
     }))
     .filter((t) => !t.status || /abert|pend|venc/.test(t.status))
