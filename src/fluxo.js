@@ -16,15 +16,12 @@ const MSG = {
   pedirDoc: (inicio = 'Certo!') => `${inicio} Me manda o *CPF de quem está no nome do boleto* (só os números). Se for empresa, pode mandar o CNPJ.\n\n_Se quiser voltar, digite *voltar*._`,
   docInvalido: 'Esse CPF não parece certo 🤔 Confere e manda de novo (só os números), ou digite *9* para falar com um atendente.',
   naoEncontrado: 'Não achei nenhum cadastro com esse CPF 🤔 Confere se é o CPF de quem está no nome do boleto e manda de novo, ou digite *9* para falar com um atendente.',
-  // completo = identidade confirmada. Sem confirmação, não mostra nome, rua nem referência.
-  contratoInfo: (c, completo = true) =>
+  // Para o cliente confirmar que é ele: nome completo e só parte do endereço (sem número, sem referência)
+  contratoInfo: (c) =>
     [
       `📋 *Contrato ${c.id}*`,
-      // LGPD: o cliente vê só o necessário para confirmar que é ele (nome abreviado, endereço sem número)
-      completo && c.nome ? `👤 Titular: ${nomeLGPD(c.nome)}` : null,
-      completo && c.endereco ? `📍 Endereço: ${enderecoLGPD(c.endereco)}` : null,
-      !completo && regiaoLGPD(c.endereco) ? `📍 Região: ${regiaoLGPD(c.endereco)}` : null,
-      completo && c.referencia ? `🧭 Referência: ${c.referencia}` : null,
+      c.nome ? `👤 Titular: ${nomeBonito(c.nome)}` : null,
+      c.endereco ? `📍 Endereço: ${enderecoLGPD(c.endereco)}` : null,
       c.status ? `📌 Situação: ${c.status}` : null,
     ].filter(Boolean).join('\n'),
   pedirVerificacao: (comRua) => comRua
@@ -1592,15 +1589,9 @@ function criarFluxo({
     estado.lembrar(chatId, { doc });
     s.contratoPreferido = contratoPreferido;
 
-    // Segurança/LGPD: nome, rua e ponto de referência só aparecem se o WhatsApp for do titular.
-    // Se o número não bater com o cadastro, pede os 4 últimos dígitos de um telefone cadastrado.
+    // Não pede mais telefone/rua para confirmar (os clientes se enrolavam): o bot mostra o nome
+    // completo e parte do endereço para o cliente conferir. Só anota para a equipe se o WhatsApp é do titular.
     s.verificado = await identidadeConfirmada(chatId, doc, contratos);
-    const comRua = ruasDe(contratos).length > 0;
-    if (!s.verificado && (telefonesDe(contratos).length || comRua)) {
-      s.etapa = 'verificar';
-      s.tentativasVerif = 0;
-      return enviar(chatId, MSG.pedirVerificacao(comRua));
-    }
     return mostrarContratos(chatId, s);
   }
 
@@ -1655,9 +1646,9 @@ function criarFluxo({
     if (todos.length === 1 || preferido) {
       s.contrato = preferido || todos[0];
       estado.lembrar(chatId, { contrato: s.contrato.id });
-      const nome = s.verificado ? (s.contrato.nome || '').split(' ')[0] : '';
+      const nome = (s.contrato.nome || '').split(' ')[0];
       const saud = nome ? `Encontrei seu cadastro, ${capitalizar(nome)}! ✅\n\n` : 'Encontrei o cadastro! ✅\n\n';
-      await enviar(chatId, saud + MSG.contratoInfo(s.contrato, s.verificado));
+      await enviar(chatId, saud + MSG.contratoInfo(s.contrato));
       return aposContrato(chatId, s);
     }
 
@@ -1691,7 +1682,7 @@ function criarFluxo({
     if (!c) return perguntarContrato(chatId, s, 'Não encontrei esse contrato 🤔 Escolha uma das opções 👇');
     s.contrato = c;
     estado.lembrar(chatId, { contrato: s.contrato.id });
-    await enviar(chatId, MSG.contratoInfo(s.contrato, s.verificado));
+    await enviar(chatId, MSG.contratoInfo(s.contrato));
     return aposContrato(chatId, s);
   }
 
@@ -1770,7 +1761,7 @@ function criarFluxo({
         '🤝 *Pedido de acordo (bot)*',
         `Cliente: ${s.contrato.nome || '-'}`,
         `CPF/CNPJ: ${s.doc}`,
-        `Identidade: ${s.verificado ? 'confirmada (telefone do cadastro)' : '⚠️ NÃO confirmada'}`,
+        `WhatsApp do titular: ${s.verificado ? 'sim (telefone do cadastro)' : '⚠️ não (número fora do cadastro)'}`,
         `Contrato: ${s.contrato.id}${s.contrato.status ? ` (${s.contrato.status})` : ''}`,
         `Faturas em aberto: ${a.qtd || '-'}`,
         `Total em aberto: ${a.total ? u.moeda(a.total) : '-'} (sem juros/multa)`,
@@ -1912,7 +1903,7 @@ function criarFluxo({
       '🛠️ *Nova ocorrência (bot)*',
       `Cliente: ${c.nome || '-'}`,
       `CPF/CNPJ: ${s.doc}`,
-      `Identidade: ${s.verificado ? 'confirmada (telefone do cadastro)' : '⚠️ NÃO confirmada'}`,
+      `WhatsApp do titular: ${s.verificado ? 'sim (telefone do cadastro)' : '⚠️ não (número fora do cadastro)'}`,
       `Contrato: ${c.id}${c.status ? ` (${c.status})` : ''}`,
       c.endereco ? `Endereço: ${c.endereco}` : null,
       c.referencia ? `Referência: ${c.referencia}` : null,
@@ -1926,12 +1917,10 @@ function criarFluxo({
   function perguntarContrato(chatId, s, pergunta) {
     const opcoes = s.contratos.slice(0, MAX_LISTA).map((c, i) => ({
       valor: String(i + 1),
-      // Endereço + ponto de referência para o cliente reconhecer qual é o contrato dele
-      // (sem identidade confirmada: só bairro/cidade)
+      // Parte do endereço (sem número) para o cliente reconhecer qual é o contrato dele
       texto: [
         `Contrato ${c.id}`,
-        s.verificado ? (c.endereco ? enderecoLGPD(c.endereco) : null) : regiaoLGPD(c.endereco),
-        s.verificado && c.referencia ? `Ref: ${c.referencia}` : null,
+        c.endereco ? enderecoLGPD(c.endereco) : null,
         c.status && !/^ativo$/i.test(String(c.status).trim()) ? String(c.status) : null,
       ].filter(Boolean).join(' · ').slice(0, 100),
     }));
