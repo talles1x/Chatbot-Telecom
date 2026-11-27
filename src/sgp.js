@@ -157,11 +157,11 @@ function extrairTelefones(c) {
 }
 
 // { a: { b: 1 }, servicos: [{ c: 2 }] } -> [['a.b', 1], ['servicos.0.c', 2]] (só valores simples)
-function achatar(obj, prefixo = '', saida = [], nivel = 0) {
-  if (!obj || typeof obj !== 'object' || nivel > 4) return saida;
+function achatar(obj, prefixo = '', saida = [], nivel = 0, maximo = 4) {
+  if (!obj || typeof obj !== 'object' || nivel > maximo) return saida;
   for (const [k, v] of Object.entries(obj)) {
     const chave = prefixo ? `${prefixo}.${k}` : k;
-    if (v && typeof v === 'object') achatar(v, chave, saida, nivel + 1);
+    if (v && typeof v === 'object') achatar(v, chave, saida, nivel + 1, maximo);
     else if (v !== null && v !== undefined && String(v).trim() !== '') saida.push([chave.toLowerCase(), v]);
   }
   return saida;
@@ -381,6 +381,17 @@ async function liberarPromessa(contrato) {
 
 // ---------- Conexão online/offline ----------
 // Retorna true (online), false (offline) ou null (não deu para saber)
+// IP do cliente: vem na listagem de clientes do SGP (servicos[].ip e, com exibir_conexao, o IP da conexão online)
+async function ipDoContrato(contrato) {
+  if (cfg.sgp.mock) return '';
+  const r = await post('/api/ura/clientes/', { contrato, exibir_conexao: 1, omitir_titulos: 1, omitir_contatos: 1, limit: 5 });
+  const ipv4 = /^(\d{1,3}\.){3}\d{1,3}$/;
+  const campos = achatar(r, '', [], 0, 10).filter(([k, v]) => ipv4.test(String(v).trim()) && String(v).trim() !== '0.0.0.0' && /(^|[._])(ip|ipv4|framedipaddress|ip_address|endereco_ip|servico_ip|online_ip|servico_online_ip)$/i.test(k) && !/voip|nas|olt|gateway|mascara|dns|cto/i.test(k));
+  // Preferência: IP da conexão online > IP do serviço > qualquer outro
+  const achado = campos.find(([k]) => /conex|online|framed|radacct/i.test(k)) || campos.find(([k]) => /servico/i.test(k)) || campos[0];
+  return achado ? String(achado[1]).trim() : '';
+}
+
 async function verificarAcesso(contrato) {
   if (cfg.sgp.mock) return mock.verificarAcesso(contrato);
   const r = await post('/api/ura/verificaacesso/', { contrato });
@@ -445,4 +456,4 @@ const mock = {
   },
 };
 
-module.exports = { consultarCliente, consultarContrato, consultarTelefone, ocorrenciasAbertas, titulosAbertos, titulosPagos, criarChamado, listarTecnicos, adicionarContato, adicionarAnotacao, criarPreCadastro, liberarPromessa, verificarAcesso };
+module.exports = { consultarCliente, consultarContrato, consultarTelefone, ocorrenciasAbertas, titulosAbertos, titulosPagos, ipDoContrato, criarChamado, listarTecnicos, adicionarContato, adicionarAnotacao, criarPreCadastro, liberarPromessa, verificarAcesso };

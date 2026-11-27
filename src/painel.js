@@ -261,6 +261,7 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
   }
 
   // ---------- Ficha do cliente no SGP ----------
+  const ipAvisado = new Set();
   async function ficha(id, docInformado) {
     const lembrado = estado.cliente(id) || {};
     const busca = String(docInformado || '').replace(/\D/g, '');
@@ -276,10 +277,13 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
     }
     if (!contratos.length) return { encontrado: false, doc: busca || lembrado.doc || '', tentouTelefone: !busca };
     const escolhido = contratos.find((c) => String(c.id) === String(lembrado.contrato)) || contratos[0];
-    const [faturas, online] = await Promise.all([
+    const [faturas, online, ip] = await Promise.all([
       sgp.titulosAbertos(busca.length > 7 ? busca : (lembrado.doc || ''), escolhido.id).catch(() => []),
       sgp.verificarAcesso(escolhido.id).catch(() => null),
+      escolhido.ip ? escolhido.ip : Promise.race([sgp.ipDoContrato(escolhido.id), new Promise((r) => setTimeout(() => r(''), 8000))]).catch((e) => { registrar(`[painel] não consegui buscar o IP do contrato ${escolhido.id} no SGP: ${e.message}`); return ''; }),
     ]);
+    if (ip) escolhido.ip = ip;
+    else if (!ipAvisado.has(escolhido.id)) { ipAvisado.add(escolhido.id); registrar(`[painel] o SGP não devolveu IP para o contrato ${escolhido.id}`); }
     atendimento.lembrarNomeSgp(id, escolhido.nome);
     return {
       encontrado: true,
