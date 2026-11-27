@@ -220,6 +220,37 @@
   .transcricao::before { content: "📝 "; }
   .lista-faturas { max-height: 230px; overflow-y: auto; margin-right: -6px; padding-right: 6px; overscroll-behavior: contain; }
   .lista-faturas::-webkit-scrollbar { width: 6px; }
+  .fatura { border-radius: 10px; padding: 6px 8px !important; margin: 2px 0; border-bottom: 0 !important; }
+  .fatura.vencida { background: var(--erro-fundo); }
+  .fatura.vencida > span:first-child { color: var(--erro); font-weight: 600; }
+  .fatura.acordo { background: var(--ok-fundo); }
+  .fatura.acordo > span:first-child { color: var(--ok); font-weight: 600; }
+  .tag-fat { display: block; font-size: 10px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; opacity: .85; }
+  .balao { position: relative; }
+  .msg-acoes { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: var(--superficie); color: var(--texto-2); display: grid; place-items: center; cursor: pointer; opacity: 0; transition: opacity .12s; box-shadow: var(--sombra-1); }
+  .msg-acoes .ic { width: 15px; height: 15px; }
+  .balao:hover .msg-acoes, .msg-acoes:focus-visible { opacity: 1; }
+  .balao.mim .msg-acoes { background: var(--balao-mim); }
+  .balao.apagada { opacity: .75; }
+  .balao.piscar { animation: piscar 1.4s ease; }
+  @keyframes piscar { 30% { box-shadow: 0 0 0 3px var(--azul-2); } }
+  .visto.lido { color: var(--azul); }
+  .citacao { border-left: 3px solid var(--c-purple); background: rgba(0,0,0,.05); border-radius: 8px; padding: 5px 9px; margin: 0 18px 6px 0; font-size: 12.5px; color: var(--texto-2); cursor: pointer; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; white-space: pre-wrap; }
+  .citacao.mim { border-left-color: var(--azul); }
+  .citacao b { display: block; color: var(--c-purple); font-size: 12px; }
+  .citacao.mim b { color: var(--azul-texto); }
+  :root[data-tema="escuro"] .citacao { background: rgba(255,255,255,.06); }
+  .respondendo { display: flex; align-items: center; gap: 8px; padding: 10px 16px 0; }
+  .respondendo[hidden] { display: none; }
+  .respondendo .citacao { flex: 1; margin: 0; cursor: default; }
+  .menu-msg { position: fixed; min-width: 200px; z-index: 30; }
+  .menu-msg button.perigo { color: var(--erro); }
+  .enc-lista { max-height: 340px; overflow-y: auto; padding: 0 12px 8px; }
+  .enc-lista button { display: flex; gap: 10px; align-items: center; width: 100%; border: 0; background: none; padding: 8px; border-radius: 12px; cursor: pointer; text-align: left; }
+  .enc-lista button:hover { background: var(--hover); }
+  .enc-lista small { display: block; color: var(--texto-2); font-size: 12px; }
+  .anexo-previa { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; }
+  .conversa.soltando { outline: 3px dashed var(--azul-2); outline-offset: -8px; }
   .acoes-ficha { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
   .fatura .botao { height: 24px; padding: 0 9px; font-size: 12px; }
   .carregando { margin: auto; display: grid; place-items: center; gap: 10px; color: var(--texto-2); }
@@ -622,6 +653,8 @@
 </div>
 
 <div class="zoom" id="zoom"><img alt=""></div>
+<div class="menu-suspenso menu-msg" id="menu-msg"></div>
+<div class="modal-fundo" id="modal-enc"><div class="modal" role="dialog" aria-modal="true"><h3>Encaminhar para…</h3><div style="padding:0 20px 12px"><input class="campo" id="enc-busca" placeholder="Buscar nome ou número"></div><div class="enc-lista" id="enc-lista"></div><div class="acoes"><button class="botao" id="enc-cancelar">Cancelar</button></div></div></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <div class="modal-fundo" id="modal"><div class="modal" role="dialog" aria-modal="true"><h3 id="modal-titulo"></h3><p id="modal-texto"></p><div id="modal-area" style="padding:0 20px 18px" hidden><textarea class="campo" id="modal-campo" rows="4"></textarea></div><div class="acoes"><button class="botao" id="modal-nao">Cancelar</button><button class="botao primario" id="modal-sim">Confirmar</button></div></div></div>
 
@@ -662,6 +695,10 @@ const ICONES = {
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
   'seta-baixo': '<path d="m6 9 6 6 6-6"/>',
   calendario: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>',
+  copiar: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+  encaminhar: '<path d="m15 5 6 6-6 6"/><path d="M21 11H10a6 6 0 0 0-6 6v2"/>',
+  editar: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  lixeira: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
   robo: '<rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 17h6"/>',
   som: '<path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>',
   'som-off': '<path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="m22 9-6 6M16 9l6 6"/>',
@@ -784,12 +821,12 @@ function toast(texto, tipo = 'info') {
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 320); }, tipo === 'erro' ? 6000 : 3200);
 }
 // Confirmação
-function confirmar(titulo, texto, { botao = 'Confirmar', perigo = false, campo = null } = {}) {
+function confirmar(titulo, texto, { botao = 'Confirmar', perigo = false, campo = null, valor = '' } = {}) {
   return new Promise((ok) => {
     $('#modal-titulo').textContent = titulo;
     $('#modal-texto').textContent = texto;
     $('#modal-area').hidden = campo === null;
-    $('#modal-campo').value = '';
+    $('#modal-campo').value = valor || '';
     $('#modal-campo').placeholder = campo || '';
     $('#modal-sim').textContent = botao;
     $('#modal-sim').className = `botao ${perigo ? 'perigo cheio' : 'primario'}`;
@@ -897,8 +934,11 @@ let aberta = null;
 let abaAtual = 'inicio';
 let filtro = 'clientes';
 let conversaAtual = null;
+let respondendo = null; // mensagem marcada para responder
+const msgsAtuais = new Map(); // id -> mensagem da conversa aberta (para o menu de ações)
 let config = { respostas: [], etiquetas: [], textoEncerramento: '' };
 let anexo = null;
+let querFoco = false;
 let empresa = '';
 // Quem está atendendo neste computador (cada navegador guarda o seu)
 let atendenteAtual = lerLocal('atendente') || '';
@@ -1106,6 +1146,8 @@ async function abrirConversa(id, manter) {
   // Trocou de conversa: limpa na hora, para nunca mostrar a conversa anterior enquanto a nova carrega
   if (!manter) {
     conversaAtual = null;
+    respondendo = null;
+    anexo = null;
     $('#conversa').innerHTML = '<div class="carregando"><i></i>Abrindo conversa…</div>';
     $('#lado').dataset.id = '';
   }
@@ -1117,6 +1159,10 @@ async function abrirConversa(id, manter) {
   if (aberta !== id) return;
   conversaAtual = c;
   const rascunho = manter && $('#texto') ? $('#texto').value : '';
+  // Se estava digitando, volta o cursor para a caixa de texto depois de redesenhar
+  const caixaTexto = $('#texto');
+  const estavaDigitando = manter && caixaTexto && document.activeElement === caixaTexto;
+  const cursor = estavaDigitando ? [caixaTexto.selectionStart, caixaTexto.selectionEnd] : null;
   const caixaAntiga = $('#mensagens');
   const noFim = !manter || !caixaAntiga || caixaAntiga.scrollTop + caixaAntiga.clientHeight >= caixaAntiga.scrollHeight - 40;
   let ultimoDia = '';
@@ -1131,9 +1177,12 @@ async function abrirConversa(id, manter) {
     else if (m.midia && m.tipo === 'video') midia = `<video controls preload="none" src="${src}" style="max-width:280px;border-radius:8px"></video>`;
     else if (m.midia && m.tipo === 'document') midia = `<a class="doc" href="${src}" target="_blank">📄 <span>${esc(m.arquivo || 'Documento')}</span></a>`;
     else if (m.tipo !== 'chat' && TIPOS[m.tipo]) midia = `<span class="midia">${TIPOS[m.tipo]}</span>\n`;
+    msgsAtuais.set(m.id, m);
+    if (m.apagada) return `${sep}<div class="balao${m.deMim ? ' mim' : ''} apagada"><span class="midia">🚫 ${m.deMim ? 'Você apagou esta mensagem' : 'Mensagem apagada'}</span><span class="meta">${new Date(m.hora * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span></div>`;
     const corpo = ['ptt', 'audio', 'sticker'].includes(m.tipo) || (m.tipo === 'document' && m.corpo === m.arquivo) ? '' : esc(m.corpo);
-    const visto = m.deMim ? (m.ack >= 2 ? ' ✓✓' : ' ✓') : '';
-    return `${sep}<div class="balao${m.deMim ? ' mim' : ''}">${midia}${corpo}<span class="meta">${new Date(m.hora * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}${visto}</span></div>`;
+    const visto = m.deMim ? `<span class="visto${m.ack >= 3 ? ' lido' : ''}">${m.ack >= 2 ? ' ✓✓' : ' ✓'}</span>` : '';
+    const citacao = m.citada ? `<div class="citacao${m.citada.deMim ? ' mim' : ''}" data-ir-msg="${esc(m.citada.id)}"><b>${m.citada.deMim ? 'Você' : esc((c.nome || c.nomeSgp || 'Cliente').split(' ')[0])}</b>${esc(m.citada.corpo)}</div>` : '';
+    return `${sep}<div class="balao${m.deMim ? ' mim' : ''}" data-msg="${esc(m.id)}"><button class="msg-acoes" title="Mais opções" data-acoes="${esc(m.id)}">${ic('seta-baixo')}</button>${citacao}${midia}${corpo}<span class="meta">${m.editada ? '<i>editada</i> · ' : ''}${new Date(m.hora * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}${visto}</span></div>`;
   }).join('');
   const t = c.ticket;
   const nome = c.nome || c.nomeSgp || fone(c.numero);
@@ -1158,6 +1207,7 @@ async function abrirConversa(id, manter) {
     <div class="mensagens" id="mensagens">${baloes || '<div class="vazio" style="margin:auto">Sem mensagens.</div>'}</div>
     <div class="compositor">
       <div class="faixa" id="anexo"></div>
+      <div class="respondendo" id="respondendo" hidden></div>
       <div class="rapidas" id="rapidas">${config.respostas.map((r, i) => `<button data-i="${i}" title="${esc(r.texto)}">/${esc(r.atalho)}</button>`).join('') || '<span class="msg">Cadastre respostas rápidas em Configurações</span>'}</div>
       <div class="escrever">
         <div class="sugestoes" id="sugestoes"></div>
@@ -1181,7 +1231,16 @@ async function abrirConversa(id, manter) {
     img.addEventListener('click', () => { $('#zoom img').src = img.src; $('#zoom').style.display = 'grid'; });
     img.addEventListener('load', () => { if (noFim) caixa.scrollTop = caixa.scrollHeight; });
   });
+  msgsAtuais.clear();
+  c.mensagens.forEach((m) => msgsAtuais.set(m.id, m));
   ligarEscrever(id, rascunho, manter);
+  if (estavaDigitando || querFoco) {
+    const t2 = $('#texto');
+    t2.focus();
+    if (cursor) t2.setSelectionRange(cursor[0], cursor[1]);
+    querFoco = false;
+  }
+  ligarAcoesMensagens(caixa);
   if ($('#assumir')) $('#assumir').addEventListener('click', async () => {
     if (!conferirAtendente()) return;
     try { await api('/api/assumir', { id, atendente: atendenteAtual }); toast(`${atendenteAtual || 'Você'} assumiu a conversa. O bot ficou pausado nela.`, 'ok'); } catch (e) { toast(e.message, 'erro'); }
@@ -1249,19 +1308,21 @@ function ligarEscrever(id, rascunho, manter) {
   });
   $$('#rapidas button').forEach((b) => b.addEventListener('click', () => usar(config.respostas[Number(b.dataset.i)].atalho)));
   $('#anexar').addEventListener('click', () => $('#arquivo').click());
-  $('#arquivo').addEventListener('change', () => {
-    const f = $('#arquivo').files[0];
-    if (!f) return;
-    if (f.size > 15 * 1024 * 1024) { toast('Arquivo grande demais (máximo 15 MB).', 'erro'); return; }
-    const leitor = new FileReader();
-    leitor.onload = () => {
-      anexo = { nome: f.name, tipo: f.type || 'application/octet-stream', base64: String(leitor.result).split(',')[1] };
-      $('#anexo').style.display = 'flex';
-      $('#anexo').innerHTML = `${ic('clipe')}<b>${esc(f.name)}</b><span>· o texto vai como legenda</span><button class="botao peq fantasma" id="tirar-anexo">${ic('x')}Tirar</button>`;
-      $('#tirar-anexo').addEventListener('click', () => { anexo = null; $('#anexo').style.display = 'none'; $('#arquivo').value = ''; });
-    };
-    leitor.readAsDataURL(f);
+  $('#arquivo').addEventListener('change', () => { if ($('#arquivo').files[0]) anexarArquivo($('#arquivo').files[0]); });
+  // Ctrl+V com print/imagem copiada: vira anexo (o texto digitado vai como legenda)
+  t.addEventListener('paste', (e) => {
+    const arq = [...((e.clipboardData && e.clipboardData.items) || [])].filter((i) => i.kind === 'file').map((i) => i.getAsFile()).find(Boolean);
+    if (!arq) return;
+    e.preventDefault();
+    anexarArquivo(arq, /^image\//.test(arq.type) ? `print-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.${(arq.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}` : arq.name);
   });
+  // Arrastar um arquivo para a conversa também anexa
+  const area = $('#conversa');
+  area.ondragover = (e) => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); area.classList.add('soltando'); } };
+  area.ondragleave = (e) => { if (!area.contains(e.relatedTarget)) area.classList.remove('soltando'); };
+  area.ondrop = (e) => { e.preventDefault(); area.classList.remove('soltando'); const f = e.dataTransfer.files[0]; if (f) anexarArquivo(f); };
+  if (anexo) desenharAnexo();
+  desenharRespondendo();
   $('#relogio').addEventListener('click', () => {
     const p = $('#agendar');
     p.style.display = p.style.display === 'flex' ? 'none' : 'flex';
@@ -1283,17 +1344,138 @@ function ligarEscrever(id, rascunho, manter) {
   $('#enviar').addEventListener('click', enviar);
   if (!manter) t.focus();
 }
+function anexarArquivo(f, nome) {
+  if (f.size > 15 * 1024 * 1024) { toast('Arquivo grande demais (máximo 15 MB).', 'erro'); return; }
+  const leitor = new FileReader();
+  leitor.onload = () => {
+    anexo = { nome: nome || f.name || 'arquivo', tipo: f.type || 'application/octet-stream', base64: String(leitor.result).split(',')[1], previa: /^image\//.test(f.type) ? String(leitor.result) : '' };
+    desenharAnexo();
+    $('#texto').focus();
+  };
+  leitor.readAsDataURL(f);
+}
+function desenharAnexo() {
+  const box = $('#anexo');
+  if (!box) return;
+  if (!anexo) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'flex';
+  box.innerHTML = `${anexo.previa ? `<img src="${anexo.previa}" alt="" class="anexo-previa">` : ic('clipe')}<b>${esc(anexo.nome)}</b><span>· o texto vai como legenda · Enter envia</span><button class="botao peq fantasma" id="tirar-anexo">${ic('x')}Tirar</button>`;
+  $('#tirar-anexo').addEventListener('click', () => { anexo = null; desenharAnexo(); const a = $('#arquivo'); if (a) a.value = ''; $('#texto').focus(); });
+}
+function desenharRespondendo() {
+  const box = $('#respondendo');
+  if (!box) return;
+  box.hidden = !respondendo;
+  if (!respondendo) return;
+  box.innerHTML = `<div class="citacao${respondendo.deMim ? ' mim' : ''}"><b>Respondendo ${respondendo.deMim ? 'você mesmo' : esc(((conversaAtual && (conversaAtual.nome || conversaAtual.nomeSgp)) || 'cliente').split(' ')[0])}</b>${esc(respondendo.corpo)}</div><button class="botao icone fantasma peq" id="cancelar-resposta" title="Cancelar resposta">${ic('x')}</button>`;
+  $('#cancelar-resposta').addEventListener('click', () => { respondendo = null; desenharRespondendo(); $('#texto').focus(); });
+}
+// Menu de cada mensagem: responder, copiar, encaminhar, editar e apagar para todos
+function textoCurto(m) {
+  if (!m) return '';
+  return (m.corpo || m.transcricao || { image: '📷 Foto', video: '🎬 Vídeo', ptt: '🎤 Áudio', audio: '🎤 Áudio', document: `📄 ${m.arquivo || 'Documento'}`, sticker: '🙂 Figurinha' }[m.tipo] || 'Mensagem').slice(0, 140);
+}
+function ligarAcoesMensagens(caixa) {
+  $$('[data-acoes]', caixa).forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); abrirMenuMensagem(b.dataset.acoes, b); }));
+  $$('.balao[data-msg]', caixa).forEach((el) => el.addEventListener('dblclick', (e) => { if (e.target.closest('audio, video, a, img')) return; responderMensagem(el.dataset.msg); }));
+  $$('[data-ir-msg]', caixa).forEach((el) => el.addEventListener('click', () => {
+    const alvo = el.dataset.irMsg && [...$$('.balao[data-msg]', caixa)].find((b) => b.dataset.msg.endsWith(el.dataset.irMsg));
+    if (alvo) { alvo.scrollIntoView({ behavior: 'smooth', block: 'center' }); alvo.classList.add('piscar'); setTimeout(() => alvo.classList.remove('piscar'), 1400); }
+  }));
+}
+function responderMensagem(id) {
+  const m = msgsAtuais.get(id);
+  if (!m || m.apagada) return;
+  respondendo = { id, corpo: textoCurto(m), deMim: m.deMim };
+  desenharRespondendo();
+  $('#texto').focus();
+}
+function abrirMenuMensagem(id, botao) {
+  const m = msgsAtuais.get(id);
+  if (!m) return;
+  const menu = $('#menu-msg');
+  const podeEditar = m.deMim && !m.apagada && m.tipo === 'chat' && Date.now() / 1000 - m.hora < 15 * 60;
+  menu.innerHTML = [
+    ['responder', 'enviar', 'Responder'],
+    ['copiar', 'copiar', 'Copiar'],
+    ['encaminhar', 'encaminhar', 'Encaminhar'],
+    podeEditar ? ['editar', 'editar', 'Editar'] : null,
+    m.deMim && !m.apagada ? ['apagar', 'lixeira', 'Apagar para todos', 'perigo'] : null,
+  ].filter(Boolean).map(([a, i, t, cls]) => `<button data-a="${a}" class="${cls || ''}">${ic(i)}<span>${t}</span></button>`).join('');
+  menu.classList.add('aberto');
+  const r = botao.getBoundingClientRect();
+  const largura = 200, altura = menu.offsetHeight;
+  menu.style.left = `${Math.max(8, Math.min(window.innerWidth - largura - 8, m.deMim ? r.right - largura : r.left))}px`;
+  menu.style.top = `${r.bottom + altura + 8 > window.innerHeight ? r.top - altura - 4 : r.bottom + 4}px`;
+  $$('button', menu).forEach((b) => b.addEventListener('click', () => { menu.classList.remove('aberto'); acaoMensagem(b.dataset.a, m); }));
+}
+document.addEventListener('click', (e) => { if (!e.target.closest('#menu-msg')) $('#menu-msg').classList.remove('aberto'); });
+async function acaoMensagem(acao, m) {
+  if (acao === 'responder') return responderMensagem(m.id);
+  if (acao === 'copiar') {
+    try { await navigator.clipboard.writeText(m.corpo || m.transcricao || ''); toast('Mensagem copiada.', 'ok'); } catch { toast('Não consegui copiar.', 'erro'); }
+    return;
+  }
+  if (acao === 'editar') {
+    const novo = await confirmar('Editar mensagem', 'O cliente vê a mensagem com a marca "editada". O WhatsApp só deixa editar até 15 minutos depois de enviar.', { botao: 'Salvar', campo: 'Novo texto', valor: m.corpo });
+    if (!novo || novo === m.corpo) return;
+    try { await api('/api/mensagem', { msgId: m.id, acao: 'editar', texto: novo, atendente: atendenteAtual }); toast('Mensagem editada.', 'ok'); setTimeout(() => abrirConversa(aberta, true), 700); } catch (e) { toast(e.message, 'erro'); }
+    return;
+  }
+  if (acao === 'apagar') {
+    if (!(await confirmar('Apagar para todos?', 'A mensagem some para o cliente também. No lugar fica "Mensagem apagada".', { botao: 'Apagar para todos', perigo: true }))) return;
+    try { await api('/api/mensagem', { msgId: m.id, acao: 'apagar', atendente: atendenteAtual }); toast('Mensagem apagada para todos.', 'ok'); setTimeout(() => abrirConversa(aberta, true), 700); } catch (e) { toast(e.message, 'erro'); }
+    return;
+  }
+  if (acao === 'encaminhar') {
+    const para = await escolherConversa();
+    if (!para) return;
+    try { await api('/api/mensagem', { msgId: m.id, acao: 'encaminhar', para: para.id, atendente: atendenteAtual }); toast(`Encaminhada para ${para.nome}.`, 'ok'); } catch (e) { toast(e.message, 'erro'); }
+  }
+}
+// Janela para escolher a conversa de destino (encaminhar)
+function escolherConversa() {
+  return new Promise((ok) => {
+    const fundo = $('#modal-enc');
+    const busca = $('#enc-busca');
+    const lista = $('#enc-lista');
+    const desenhar = () => {
+      const q = busca.value.trim().toLowerCase(), qn = q.replace(/\D/g, '');
+      const itens = conversas.filter((c) => c.id !== aberta && (!q || [c.nome, c.nomeSgp].some((x) => String(x || '').toLowerCase().includes(q)) || (qn.length >= 3 && String(c.numero).includes(qn)))).slice(0, 60);
+      lista.innerHTML = itens.map((c) => `<button data-id="${esc(c.id)}">${avatarHtml(c.id, c.nome || c.nomeSgp || c.numero, 'peq')}<span><b>${esc(c.nome || c.nomeSgp || fone(c.numero))}</b><small>${esc(fone(c.numero))}${c.equipe ? ' · equipe' : ''}</small></span></button>`).join('') || '<p class="msg" style="padding:12px;margin:0">Nenhuma conversa encontrada.</p>';
+      $$('button', lista).forEach((b) => b.addEventListener('click', () => { const c = conversas.find((x) => x.id === b.dataset.id); fechar(c ? { id: c.id, nome: c.nome || c.nomeSgp || fone(c.numero) } : null); }));
+    };
+    const fechar = (v) => { fundo.classList.remove('aberto'); busca.oninput = null; $('#enc-cancelar').onclick = null; fundo.onclick = null; ok(v); };
+    busca.value = '';
+    busca.oninput = desenhar;
+    $('#enc-cancelar').onclick = () => fechar(null);
+    fundo.onclick = (e) => { if (e.target === fundo) fechar(null); };
+    desenhar();
+    fundo.classList.add('aberto');
+    setTimeout(() => busca.focus(), 50);
+  });
+}
 async function enviar() {
-  const t = $('#texto');
+  let t = $('#texto');
   const texto = t.value.trim();
   if ((!texto && !anexo) || !aberta) return;
   if (!conferirAtendente()) return;
   $('#enviar').disabled = true;
   try {
-    await api('/api/enviar', { id: aberta, texto, arquivo: anexo, atendente: atendenteAtual });
-    t.value = '';
+    await api('/api/enviar', { id: aberta, texto, arquivo: anexo ? { nome: anexo.nome, tipo: anexo.tipo, base64: anexo.base64 } : null, atendente: atendenteAtual, responder: respondendo ? respondendo.id : undefined });
+    // A conversa pode ter sido redesenhada durante o envio: limpa a caixa que está na tela agora
+    for (const caixa of new Set([t, $('#texto')])) {
+      if (!caixa) continue;
+      caixa.value = caixa.value.startsWith(texto) ? caixa.value.slice(texto.length).trimStart() : (caixa === t ? '' : caixa.value);
+      caixa.style.height = 'auto';
+    }
+    t = $('#texto') || t;
     anexo = null;
-    $('#anexo').style.display = 'none';
+    respondendo = null;
+    desenharAnexo();
+    desenharRespondendo();
+    t.focus(); // continua na caixa de texto para mandar a próxima
+    querFoco = true;
     setTimeout(() => abrirConversa(aberta, true), 800);
   } catch (e) {
     toast(`Não enviou: ${e.message}`, 'erro');
@@ -1333,6 +1515,7 @@ async function desenharLado(c, doc) {
       <div style="font-weight:700;margin-bottom:6px">${esc(k.nome || '')}</div>
       ${f.peloTelefone ? '<p class="msg" style="margin:-2px 0 8px;font-size:12px">Achado pelo telefone do WhatsApp</p>' : ''}
       <div class="linha"><span>ID / contrato</span><span>${esc(k.id)}</span></div>
+      ${k.ip ? `<div class="linha"><span>IP</span><span><a href="http://${esc(k.ip)}" target="_blank" rel="noopener" title="Abrir http://${esc(k.ip)}">${esc(k.ip)} ↗</a></span></div>` : ''}
       <div class="linha"><span>Situação</span><span>${esc(k.status || '–')}</span></div>
       <div class="linha"><span>Conexão</span><span>${f.online === true ? '<span class="badge bot">online</span>' : f.online === false ? '<span class="badge" style="background:var(--erro-fundo);color:var(--erro)">offline</span>' : '–'}</span></div>
       ${k.plano ? `<div class="linha"><span>Plano</span><span>${esc(k.plano)}</span></div>` : ''}
@@ -1340,7 +1523,7 @@ async function desenharLado(c, doc) {
       ${k.referencia ? `<div class="linha"><span>Referência</span><span>${esc(k.referencia)}</span></div>` : ''}
       ${(k.telefones || []).length ? `<div class="linha"><span>Telefones</span><span>${k.telefones.map((x) => esc(fone(x))).join('<br>')}</span></div>` : ''}
       <h4 style="margin-top:14px">${ic('boleto')}Faturas em aberto${f.faturas.length ? ` · ${f.faturas.length} · ${dinheiro(f.faturas.reduce((t, x) => t + (Number(String(x.valor ?? 0).replace(',', '.')) || 0), 0))}` : ''}</h4>
-      <div class="lista-faturas">${f.faturas.length ? f.faturas.map((x, i) => `<div class="fatura" style="align-items:center;gap:8px"><span>${esc(dataBR(x.vencimento))}</span><span style="margin-left:auto">${x.link ? `<a href="${esc(x.link)}" target="_blank">${dinheiro(x.valor)}</a>` : dinheiro(x.valor)}</span>${x.link || x.pix || x.linha ? `<button class="botao peq primario" data-boleto="${i}" title="Envia o boleto${x.pix ? ', o PIX copia e cola' : ''}${x.linha ? ' e o código de barras' : ''}">Enviar</button>` : ''}${x.pix ? `<button class="botao peq" data-pix="${i}" title="Copiar o PIX copia e cola">PIX</button>` : ''}</div>`).join('') : '<p class="msg" style="margin:0">Nenhuma em aberto ✅</p>'}</div>
+      <div class="lista-faturas">${f.faturas.length ? f.faturas.map((x, i) => { const venc = String(x.vencimento || '').slice(0, 10).replace(/^(\d{2})\/(\d{2})\/(\d{4})$/, '$3-$2-$1'); const vencida = f.hoje && venc && venc < f.hoje; return `<div class="fatura${x.acordo ? ' acordo' : vencida ? ' vencida' : ''}" style="align-items:center;gap:8px" title="${x.acordo ? 'Parcela de acordo' : vencida ? 'Vencida' : 'A vencer'}"><span>${esc(dataBR(x.vencimento))}${x.acordo ? '<small class="tag-fat">acordo</small>' : vencida ? '<small class="tag-fat">vencida</small>' : ''}</span><span style="margin-left:auto">${x.link ? `<a href="${esc(x.link)}" target="_blank">${dinheiro(x.valor)}</a>` : dinheiro(x.valor)}</span>${x.link || x.pix || x.linha ? `<button class="botao peq primario" data-boleto="${i}" title="Envia o boleto${x.pix ? ', o PIX copia e cola' : ''}${x.linha ? ' e o código de barras' : ''}">Enviar</button>` : ''}${x.pix ? `<button class="botao peq" data-pix="${i}" title="Copiar o PIX copia e cola">PIX</button>` : ''}</div>`; }).join('') : '<p class="msg" style="margin:0">Nenhuma em aberto ✅</p>'}</div>
       <div class="acoes-ficha">
         <button class="botao peq" id="acao-liberar">${ic('check')}Liberação de confiança</button>
         <button class="botao peq" id="acao-chamado">${ic('ferramenta')}Abrir ocorrência</button>

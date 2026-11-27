@@ -220,6 +220,14 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       };
     }));
   }
+  // Mensagem respondida (citada): texto curto e de quem é
+  function citadaDe(m) {
+    const q = m.hasQuotedMsg && m._data && m._data.quotedMsg;
+    if (!q) return undefined;
+    const eu = client.info && client.info.wid && client.info.wid._serialized;
+    const autor = m._data.quotedParticipant && (m._data.quotedParticipant._serialized || m._data.quotedParticipant);
+    return { id: m._data.quotedStanzaID || '', corpo: previa(q) || TIPOS[q.type] || 'Mensagem', deMim: Boolean(eu && autor && String(autor).split('@')[0] === String(eu).split('@')[0]) };
+  }
   async function mensagensDe(id) {
     const chat = await client.getChatById(id);
     const msgs = await chat.fetchMessages({ limit: 50 });
@@ -234,8 +242,11 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       ticket: atendimento.ticket(id),
       etiquetas: atendimento.etiquetasDe(id),
       notas: atendimento.notasDe(id),
-      mensagens: msgs.filter((m) => m.type !== 'e2e_notification' && m.type !== 'notification_template' && m.type !== 'revoked').map((m) => ({
+      mensagens: msgs.filter((m) => m.type !== 'e2e_notification' && m.type !== 'notification_template').map((m) => ({
         id: m.id && m.id._serialized,
+        apagada: m.type === 'revoked',
+        editada: Boolean(m.latestEditMsgKey || (m._data && (m._data.latestEditMsgKey || m._data.latestEditSenderTimestampMs))),
+        citada: citadaDe(m),
         midia: Boolean(m.hasMedia),
         arquivo: m._data && (m._data.filename || ''),
         mime: m._data && (m._data.mimetype || ''),
@@ -276,7 +287,8 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       doc: busca || lembrado.doc || '',
       contrato: escolhido,
       outros: contratos.filter((c) => c !== escolhido).map((c) => ({ id: c.id, status: c.status, endereco: c.endereco })),
-      faturas: faturas.slice(0, 100).map((f) => ({ vencimento: f.vencimento, valor: f.valor, link: f.link, pix: f.pix, linha: f.linha })),
+      faturas: faturas.slice(0, 100).map((f) => ({ vencimento: f.vencimento, valor: f.valor, link: f.link, pix: f.pix, linha: f.linha, acordo: Boolean(f.acordo) })),
+      hoje: u.agoraLocal().hojeISO,
       online,
     };
   }
@@ -325,7 +337,7 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       if (rota === 'GET /api/conversa') return responder(res, 200, await mensagensDe(url.searchParams.get('id')));
       if (rota === 'POST /api/enviar') {
         const pedido = await corpo(req);
-        const { id, arquivo, atendente } = pedido;
+        const { id, arquivo, atendente, responder: citar } = pedido;
         let { texto } = pedido;
         if (!id || (!String(texto || '').trim() && !arquivo)) return responder(res, 400, { erro: 'faltou a conversa ou o texto' });
         // Assinatura com o nome de quem está atendendo (opção em Configurações › Atendentes)
@@ -334,9 +346,9 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
         if (arquivo && arquivo.base64) {
           const media = new MessageMedia(arquivo.tipo || 'application/octet-stream', arquivo.base64, arquivo.nome || 'arquivo');
           const ehDoc = !/^image\/|^video\//.test(arquivo.tipo || '');
-          await client.sendMessage(id, media, { caption: String(texto || '').trim() || undefined, sendMediaAsDocument: ehDoc });
+          await client.sendMessage(id, media, { caption: String(texto || '').trim() || undefined, sendMediaAsDocument: ehDoc, ...(citar ? { quotedMessageId: citar } : {}) });
         } else {
-          await client.sendMessage(id, String(texto).trim());
+          await client.sendMessage(id, String(texto).trim(), citar ? { quotedMessageId: citar } : {});
         }
         if (atendente && atendimento.ticket(id)) atendimento.respondeu(id, { atendente });
         registrar(`[painel] ${atendente ? String(atendente).trim() : 'atendente'} respondeu pelo painel`);
@@ -391,6 +403,35 @@ function iniciarPainel({ client, fluxo, cfg, registrar, conexao, numeroDeChat, a
       }
       // Ações do atendente na ficha (cliente já identificado)
       // Boleto do cliente: igual o bot manda (texto + PIX copia e cola + código de barras, cada um sozinho para copiar)
+      // ---------- Ações nas mensagens (iguais às do WhatsApp) ----------
+      if (rota === 'POST /api/mensagem') {
+        const { msgId, acao, texto, para, atendente } = await corpo(req);
+        const msg = msgId ? await client.getMessageById(msgId).catch(() => null) : null;
+        if (!msg) return responder(res, 404, { erro: 'mensagem não encontrada (pode ser antiga demais)' });
+        const quem = atendente ? ` por ${String(atendente).trim()}` : '';
+        if (acao === 'editar') {
+          if (!msg.fromMe) return responder(res, 400, { erro: 'só dá para editar mensagens enviadas por nós' });
+          if (!String(texto || '').trim()) return responder(res, 400, { erro: 'o texto ficou vazio' });
+          if (Date.now() / 1000 - msg.timestamp > 15 * 60) return responder(res, 400, { erro: 'o WhatsApp só deixa editar até 15 minutos depois de enviar' });
+          const r = await msg.edit(String(texto).trim());
+          if (!r) return responder(res, 400, { erro: 'o WhatsApp não aceitou a edição' });
+          registrar(`[painel] mensagem editada${quem}`);
+          return responder(res, 200, { ok: true });
+        }
+        if (acao === 'apagar') {
+          if (!msg.fromMe) return responder(res, 400, { erro: 'só dá para apagar para todos as mensagens enviadas por nós' });
+          await msg.delete(true);
+          registrar(`[painel] mensagem apagada para todos${quem}`);
+          return responder(res, 200, { ok: true });
+        }
+        if (acao === 'encaminhar') {
+          if (!para) return responder(res, 400, { erro: 'escolha para quem encaminhar' });
+          await msg.forward(para);
+          registrar(`[painel] mensagem encaminhada${quem}`);
+          return responder(res, 200, { ok: true });
+        }
+        return responder(res, 400, { erro: 'ação desconhecida' });
+      }
       if (rota === 'POST /api/enviar-boleto') {
         const { id, fatura, atendente } = await corpo(req);
         if (!id || !fatura) return responder(res, 400, { erro: 'faltou a conversa ou o boleto' });
