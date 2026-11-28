@@ -1337,6 +1337,17 @@ function criarFluxo({
     if (naoTexto || !String(texto || '').trim()) return enviar(chatId, 'Me manda por texto, por favor. 🙂');
     const pc = (s.preCadastro = s.preCadastro || {});
 
+    // Escolha do plano do SGP (quando a ficha tinha mais de um plano possível)
+    if (s.etapa === 'equipe_pc_plano') {
+      const lista = (s.preCadastro && s.preCadastro.planosOpcoes) || [];
+      const n = Number(t);
+      const escolhido = Number.isInteger(n) && n >= 1 && n <= lista.length ? lista[n - 1] : lista.find((x) => u.normalizar(x.descricao) === t);
+      if (!escolhido) return enviar(chatId, `Responda com o número do plano (1 a ${lista.length}) ou *0* para cancelar.`);
+      s.preCadastro.planoId = escolhido.id;
+      s.preCadastro.planoNome = escolhido.descricao;
+      delete s.preCadastro.planosOpcoes;
+      return cadastrarCliente(chatId, s);
+    }
     if (s.etapa === 'equipe_pc_confirmar') {
       if (['1', 'sim', 's', 'confirmar', 'confirmo', 'ok', 'pode', 'cadastrar'].includes(t)) return cadastrarCliente(chatId, s);
       if (['2', 'corrigir', 'corrige', 'alterar', 'editar'].includes(t)) {
@@ -1368,18 +1379,55 @@ function criarFluxo({
     ]);
   }
 
+  // Plano e vencimento do SGP: primeiro o que estiver no .env; senão, a lista do próprio SGP.
+  // Se mais de um plano bater com a ficha (ex.: vários de 300 megas), pergunta qual.
+  async function resolverPlanoEVencimento(chatId, s) {
+    const pc = s.preCadastro;
+    const p = cfg.precadastro;
+    const dia = String(Number(pc.vencimento));
+    if (!pc.vencimentoId) {
+      const venc = p.vencimentos.find(([d]) => String(Number(d)) === dia);
+      if (venc) pc.vencimentoId = venc[1];
+      else {
+        const lista = await sgp.listaPreCadastro('vencimento').catch(() => []);
+        const achado = lista.find((v) => String(Number((v.descricao.match(/\d+/) || [])[0])) === dia);
+        if (achado) pc.vencimentoId = achado.id;
+      }
+    }
+    if (!pc.planoId) {
+      const doEnv = pc.plano && p.planos.find(([chave]) => u.normalizar(pc.plano).includes(u.normalizar(chave)));
+      if (doEnv) pc.planoId = doEnv[1];
+      else {
+        const lista = await sgp.listaPreCadastro('plano').catch(() => []);
+        if (lista.length) {
+          const megas = (String(pc.plano || '').match(/\d+/) || [])[0];
+          const bate = megas ? lista.filter((x) => new RegExp(`(^|\\D)${megas}(\\D|$)`).test(x.descricao) && !/inadimpl|inadepl|teste/i.test(x.descricao)) : [];
+          if (bate.length === 1) { pc.planoId = bate[0].id; pc.planoNome = bate[0].descricao; }
+          else {
+            const opcoes = (bate.length ? bate : lista.filter((x) => !/inadimpl|inadepl|teste/i.test(x.descricao))).slice(0, 30);
+            pc.planosOpcoes = opcoes;
+            s.etapa = 'equipe_pc_plano';
+            await enviar(chatId, `Qual plano do SGP? ${bate.length ? `Achei ${bate.length} planos de *${megas} megas*` : 'Não achei o plano da ficha na lista'} 👇\n\n` +
+              opcoes.map((x, i) => `*${i + 1}* - ${x.descricao}`).join('\n') + '\n\n_Responda com o número, ou *0* para cancelar._');
+            return false;
+          }
+        } else if (p.planoId) pc.planoId = p.planoId;
+      }
+    }
+    return true;
+  }
+
   async function cadastrarCliente(chatId, s) {
+    if (cfg.precadastro.ativo && s.preCadastro && !(await resolverPlanoEVencimento(chatId, s))) return; // perguntou o plano
     const pc = s.preCadastro || {};
     s.etapa = 'equipe_menu';
     delete s.preCadastro;
     const numero = await Promise.resolve(numeroDoChat(chatId)).catch(() => '');
-    const resumo = resumoFicha(pc);
+    const resumo = resumoFicha(pc) + (pc.planoNome ? `\n📶 Plano no SGP: ${pc.planoNome}` : '');
     let resultado = null;
     if (cfg.precadastro.ativo) {
       const p = cfg.precadastro;
       const dia = String(Number(pc.vencimento));
-      const venc = p.vencimentos.find(([d]) => String(Number(d)) === dia);
-      const plano = pc.plano && p.planos.find(([chave]) => u.normalizar(pc.plano).includes(u.normalizar(chave)));
       await enviar(chatId, 'Cadastrando no SGP... ⏳');
       resultado = await sgp.criarPreCadastro({
         nome: pc.nome,
@@ -1387,8 +1435,8 @@ function criarFluxo({
         celular: pc.telefone,
         endereco: pc.endereco,
         referencia: pc.referencia,
-        vencimentoId: venc ? venc[1] : '',
-        planoId: plano ? plano[1] : p.planoId,
+        vencimentoId: pc.vencimentoId || '',
+        planoId: pc.planoId || p.planoId,
         popId: p.popId,
         portadorId: p.portadorId,
         cidade: p.cidade,

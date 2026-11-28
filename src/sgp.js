@@ -334,6 +334,26 @@ async function listarTecnicos() {
 // ---------- Pré-cadastro de cliente novo ----------
 // d = { nome, cpfcnpj (só dígitos), celular, endereco, referencia, vencimentoId, planoId, popId, portadorId, cidade, uf, observacao }
 // Retorna { ok, id, mensagem }
+// Listas do pré-cadastro (planos, vencimentos) direto do SGP, guardadas por 1h
+const cacheListas = {};
+async function listaPreCadastro(tipo) {
+  if (cfg.sgp.mock) {
+    return tipo === 'plano' ? [{ id: '12', descricao: 'Fibra - Plano 300 Megas CIDADE' }, { id: '9', descricao: 'Fibra - PLANO 300 MEGAS JUAREZ' }, { id: '26', descricao: 'Fibra - PLANO 400 MEGAS' }]
+      : [{ id: '3', descricao: '5' }, { id: '1', descricao: '10' }, { id: '4', descricao: '15' }];
+  }
+  const c = cacheListas[tipo];
+  if (c && Date.now() - c.em < 3600000) return c.lista;
+  const r = await post(`/api/precadastro/${tipo}/list`, {});
+  const bruto = Array.isArray(r) ? r : Object.values(r || {}).find(Array.isArray) || [];
+  const lista = bruto.map((x) => ({
+    id: String(primeiro(x, ['id', 'plano_id', 'vencimento_id']) ?? ''),
+    descricao: String(primeiro(x, ['descricao', 'nome', 'dia', 'vencimento', 'plano']) ?? '').replace(/\s+/g, ' ').trim(),
+    tipo: String(primeiro(x, ['tipo', 'tecnologia']) || ''),
+  })).filter((x) => x.id);
+  cacheListas[tipo] = { em: Date.now(), lista };
+  return lista;
+}
+
 async function criarPreCadastro(d) {
   if (cfg.sgp.mock) return { ok: true, id: '9001', mensagem: '' };
   const tipo = d.cpfcnpj.length === 14 ? 'J' : 'F';
@@ -456,4 +476,4 @@ const mock = {
   },
 };
 
-module.exports = { consultarCliente, consultarContrato, consultarTelefone, ocorrenciasAbertas, titulosAbertos, titulosPagos, ipDoContrato, criarChamado, listarTecnicos, adicionarContato, adicionarAnotacao, criarPreCadastro, liberarPromessa, verificarAcesso };
+module.exports = { consultarCliente, consultarContrato, consultarTelefone, ocorrenciasAbertas, titulosAbertos, titulosPagos, ipDoContrato, listaPreCadastro, criarChamado, listarTecnicos, adicionarContato, adicionarAnotacao, criarPreCadastro, liberarPromessa, verificarAcesso };
